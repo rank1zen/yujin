@@ -1,15 +1,15 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"log"
+
 	"github.com/rank1zen/yujin/internal/rest"
 )
 
 func main() {
-	r := gin.New()
-
-	r.GET("/", rest.HomeHandler)
-
-	r.Run()
+	r := rest.InitRouter()
+	if err := r.Run(); err != nil {
+		log.Fatal(err)
+	}
 }
 
