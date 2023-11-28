@@ -10,20 +10,44 @@ import (
 
 // Repository injection
 type SummonerDA struct {
-	db *gorm.DB 
+	q *gorm.DB 
 }
 
-func (s *SummonerDA) Create(summoner *internal.MSummoner) error {
-	s.db.Create(&summoner)
-	// Something like this
+func NewSummonerDA(q *gorm.DB) *SummonerDA {
+	return &SummonerDA{
+		q: q,
+	}
+}
+
+func (s *SummonerDA) Create(summoner *internal.Summoner) error {
+	ctx := s.q.Create(&summoner)
+	if ctx.Error != nil {
+		return internal.WrapErrorf(ctx.Error, internal.ErrorCodeUnknown, "create summoner")
+	}
 	return nil
 }
 
-func (s *SummonerDA) Find(params *internal.CreateSummonerParams) (internal.MSummoner, error) {
+func (s *SummonerDA) Find(params *internal.FindSummonerParams) ([]internal.Summoner, error) {
+	var summoners []db.Summoner
+	s.q.Limit(params.Limit).Offset(params.Limit).Find(&summoners)
+
 	return nil, nil;
 }
 
-func (s *SummonerDA) FindRecent(puuid string) (internal.MSummoner, error) {
-	r := s.db.First(&db.DBSummoner, "a")
-	return r, nil
+func (s *SummonerDA) FindRecent(puuid string) (internal.Summoner, error) {
+	var summoner db.Summoner
+	ctx := s.q.Where("puu_id = ?", puuid).First(&summoner)
+	
+	if ctx.Error != nil {
+		return internal.Summoner{}, internal.WrapErrorf(ctx.Error, internal.ErrorCodeUnknown, "find recent")
+	}
+
+	return internal.Summoner{
+		PuuId: puuid,
+		AccountId: summoner.AccountId,
+		SummonerId: summoner.SummonerId,
+		Level: summoner.Level,
+		ProfileIconId: summoner.ProfileIconId,
+		Name: summoner.Name,
+	}, nil
 }

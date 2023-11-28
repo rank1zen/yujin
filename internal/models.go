@@ -1,6 +1,6 @@
 package internal
 
-type MSummoner struct {
+type Summoner struct {
 	PuuId         string
 	AccountId     string
 	SummonerId    string
@@ -9,7 +9,7 @@ type MSummoner struct {
 	Name          string
 }
 
-func (s MSummoner) Validate() error {
+func (s Summoner) Validate() error {
 	// TODO: Implement validation
 	return nil
 }

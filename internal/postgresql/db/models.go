@@ -8,7 +8,7 @@ const (
 	RegionKR Region = "kr"
 )
 
-type DBSummoner struct {
+type Summoner struct {
 	PuuId         string `json:"puuid" gorm:"primaryKey"`
 	AccountId     string `json:"accountId"`
 	SummonerId    string `json:"summonerId"`
