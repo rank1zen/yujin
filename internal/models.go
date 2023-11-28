@@ -7,6 +7,7 @@ type Summoner struct {
 	Level         int   
 	ProfileIconId int   
 	Name          string
+	LastRevision  string
 }
 
 func (s Summoner) Validate() error {

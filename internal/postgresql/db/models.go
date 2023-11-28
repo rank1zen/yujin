@@ -1,5 +1,7 @@
 package db
 
+import "gorm.io/gorm"
+
 type Region string
 
 const (
@@ -9,10 +11,11 @@ const (
 )
 
 type Summoner struct {
-	PuuId         string `json:"puuid" gorm:"primaryKey"`
+	gorm.Model
+	Puuid         string `json:"puuid"`
 	AccountId     string `json:"accountId"`
 	SummonerId    string `json:"summonerId"`
 	Level         int    `json:"summonerLevel"`
-	ProfileIconId int    `json:"profileIconId"`
+	ProfileIconId int    `json:"profileIconId" `
 	Name          string `json:"name"`
 }
