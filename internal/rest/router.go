@@ -8,6 +8,7 @@ import (
 
 func InitRouter() *gin.Engine {
 	r := gin.Default()
+	gin.SetMode(gin.DebugMode)
 
 	v1 := r.Group("/api/v1")
 	{

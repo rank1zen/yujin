@@ -20,12 +20,4 @@ func PostRecord(c *gin.Context) {
 }
 
 
-type Summoner struct {
-	PuuId string
-	AccountId string
-	SummonerId string
-	Level int
-	ProfileIconId int
-	Name string
-}
 
