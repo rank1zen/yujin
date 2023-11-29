@@ -27,7 +27,7 @@ func (s *SummonerDA) Create(summoner *internal.Summoner) error {
 	return nil
 }
 
-func (s *SummonerDA) Find(params *internal.FindSummonerParams) ([]internal.Summoner, error) {
+func (s *SummonerDA) Find(params *internal.PSummonerFind) ([]internal.Summoner, error) {
 	var summoners []db.Summoner
 	s.q.Limit(params.Limit).Offset(params.Limit).Find(&summoners)
 
