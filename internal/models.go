@@ -1,21 +1,20 @@
 package internal
 
-
 type RiotRegion string
 
 const (
-	RegionNA RiotRegion = "na"
+	RegionNA  RiotRegion = "na"
 	RegionEUW RiotRegion = "euw"
-	RegionKR RiotRegion = "kr"
+	RegionKR  RiotRegion = "kr"
 )
 
 type Summoner struct {
-	Region RiotRegion
+	Region        RiotRegion
 	PuuId         string
 	AccountId     string
 	SummonerId    string
-	Level         int   
-	ProfileIconId int   
+	Level         int
+	ProfileIconId int
 	Name          string
 	LastRevision  string
 }

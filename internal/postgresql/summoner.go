@@ -1,53 +1,67 @@
 package postgresql
 
 import (
+	"context"
+
 	"github.com/rank1zen/yujin/internal"
-	"github.com/rank1zen/yujin/internal/postgresql/db"
 	"gorm.io/gorm"
 )
 
-// Summoner CRUD: Create, Find, FindRecent
-
-// Repository injection
 type SummonerDA struct {
-	q *gorm.DB 
+	db *gorm.DB
 }
 
-func NewSummonerDA(q *gorm.DB) *SummonerDA {
+func NewSummonerDA(db *gorm.DB) *SummonerDA {
 	return &SummonerDA{
-		q: q,
+		db: db,
 	}
 }
 
-func (s *SummonerDA) Create(summoner *internal.Summoner) error {
-	ctx := s.q.Create(&summoner)
-	if ctx.Error != nil {
-		return internal.WrapErrorf(ctx.Error, internal.ErrorCodeUnknown, "create summoner")
+func (s *SummonerDA) Create(ctx context.Context, summoner Summoner) error {
+	tx := s.db.Create(summoner)
+	if tx.Error != nil {
+		return internal.WrapErrorf(tx.Error, internal.ErrorCodeUnknown, "insert summoner")
 	}
 	return nil
 }
 
-func (s *SummonerDA) Find(params *internal.PSummonerFind) ([]internal.Summoner, error) {
-	var summoners []db.Summoner
-	s.q.Limit(params.Limit).Offset(params.Limit).Find(&summoners)
+func (s *SummonerDA) Find(ctx context.Context, puuid string) ([]Summoner, error) {
+	var sum []Summoner
+	tx := s.db.Where("puuid = ?", puuid).Find(&sum)
 
-	return nil, nil;
-}
-
-func (s *SummonerDA) FindRecent(puuid string) (internal.Summoner, error) {
-	var summoner db.Summoner
-	ctx := s.q.Where("puu_id = ?", puuid).First(&summoner)
-	
-	if ctx.Error != nil {
-		return internal.Summoner{}, internal.WrapErrorf(ctx.Error, internal.ErrorCodeUnknown, "find recent")
+	if tx.Error != nil {
+		return nil, internal.WrapErrorf(tx.Error, internal.ErrorCodeUnknown, "summoner not found")
 	}
 
-	return internal.Summoner{
-		PuuId: puuid,
-		AccountId: summoner.AccountId,
-		SummonerId: summoner.SummonerId,
-		Level: summoner.Level,
-		ProfileIconId: summoner.ProfileIconId,
-		Name: summoner.Name,
-	}, nil
+	return sum, nil
+}
+
+func (s *SummonerDA) Newest(ctx context.Context, puuid string) (Summoner, error) {
+	var sum Summoner
+	tx := s.db.Where("puuid = ?", puuid).First(&sum)
+	if tx.Error != nil {
+		return Summoner{}, internal.WrapErrorf(tx.Error, internal.ErrorCodeUnknown, "summoner not found")
+	}
+	return sum, nil
+}
+
+type RiotRegion string
+
+const (
+	RegionNA  RiotRegion = "na"
+	RegionEUW RiotRegion = "euw"
+	RegionKR  RiotRegion = "kr"
+)
+
+type Summoner struct {
+	gorm.Model
+	Region        RiotRegion
+	Puuid         string
+	AccountId     string
+	SummonerId    string
+	Level         int64
+	ProfileIconId int32
+	Name          string
+	LastRevision  int64
+	TimeStamp     int64
 }
