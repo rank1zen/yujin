@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/KnutZuidema/golio v0.0.0-20231120132142-dbe175146b47
 	github.com/gin-gonic/gin v1.9.1
+	github.com/rabbitmq/amqp091-go v1.9.0
 )
 
 require (
@@ -38,7 +39,7 @@ require (
 	github.com/chenzhuoyu/iasm v0.9.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/go-playground/validator/v10 v10.16.0 // indirect
-	github.com/jackc/pgx/v5 v5.5.0 // indirect
+	github.com/jackc/pgx/v5 v5.5.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect

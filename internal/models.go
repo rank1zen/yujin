@@ -1,25 +1,14 @@
 package internal
 
-type RiotRegion string
-
-const (
-	RegionNA  RiotRegion = "na"
-	RegionEUW RiotRegion = "euw"
-	RegionKR  RiotRegion = "kr"
-)
+import "time"
 
 type Summoner struct {
-	Region        RiotRegion
-	PuuId         string
+	Puuid         string
 	AccountId     string
 	SummonerId    string
 	Level         int
 	ProfileIconId int
 	Name          string
-	LastRevision  string
-}
-
-func (s Summoner) Validate() error {
-	// TODO: Implement validation
-	return nil
+	LastRevision  time.Time
+	TimeStamp     time.Time
 }

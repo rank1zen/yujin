@@ -6,20 +6,39 @@ import (
 
 	"github.com/rank1zen/yujin/internal"
 	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/riot"
 )
 
 type SummonerService struct {
 	repo *postgresql.SummonerDA
+	riot *riot.SummonerQ
 }
 
-func NewSummonerService(repo *postgresql.SummonerDA) *SummonerService {
+func NewSummonerService(repo *postgresql.SummonerDA, riot *riot.SummonerQ) *SummonerService {
 	return &SummonerService{
 		repo: repo,
+		riot: riot,
 	}
 }
 
-func (s *SummonerService) Create(ctx context.Context, summoner Summoner) error {
-	return s.repo.Create(ctx, summoner.Cast())
+func (s *SummonerService) Create(ctx context.Context, summoner Summoner) (string, error){
+	msg, err := s.repo.Create(ctx, summoner.Cast())
+	if err != nil {
+		return msg, internal.WrapErrorf(err, internal.ErrorCodeUnknown, "repo.Create")
+	}
+	return msg, nil
+}
+
+func (s *SummonerService) QueryRiot(ctx context.Context, name string) (string, error) {
+	sum, err := s.riot.ByName(ctx, name)
+	if err != nil {
+		return "", internal.WrapErrorf(err, internal.ErrorCodeUnknown, "riot.ByName")
+	}
+	msg, err := s.Create(ctx, riotCast(sum))
+	if err != nil {
+		return msg, internal.WrapErrorf(err, internal.ErrorCodeUnknown, "QueryRiot")
+	}
+	return msg, nil
 }
 
 func (s *SummonerService) Search() {}
@@ -52,7 +71,6 @@ func (s *SummonerService) NewestByPuuid(ctx context.Context, puuid string) (Summ
 }
 
 type Summoner struct {
-	Region        string
 	Puuid         string
 	AccountId     string
 	SummonerId    string
@@ -65,7 +83,6 @@ type Summoner struct {
 
 func (s Summoner) Cast() postgresql.Summoner {
 	return postgresql.Summoner{
-		Region:        postgresql.RiotRegion(s.Region),
 		Puuid:         s.Puuid,
 		AccountId:     s.AccountId,
 		SummonerId:    s.SummonerId,
@@ -79,7 +96,6 @@ func (s Summoner) Cast() postgresql.Summoner {
 
 func dbCast(summoner postgresql.Summoner) Summoner {
 	return Summoner{
-		Region:        string(summoner.Region),
 		Puuid:         summoner.Puuid,
 		AccountId:     summoner.AccountId,
 		SummonerId:    summoner.SummonerId,
@@ -87,6 +103,19 @@ func dbCast(summoner postgresql.Summoner) Summoner {
 		ProfileIconId: summoner.ProfileIconId,
 		Name:          summoner.Name,
 		LastRevision:  time.Unix(summoner.LastRevision, 0),
+		TimeStamp:     time.Unix(summoner.TimeStamp, 0),
+	}
+}
+
+func riotCast(summoner riot.Summoner) Summoner {
+	return Summoner{
+		Puuid:         summoner.Puuid,
+		AccountId:     summoner.AccountId,
+		SummonerId:    summoner.SummonerId,
+		Level:         int64(summoner.Level),
+		ProfileIconId: int32(summoner.ProfileIconId),
+		Name:          summoner.Name,
+		LastRevision:  time.Unix(int64(summoner.LastRevision), 0),
 		TimeStamp:     time.Unix(summoner.TimeStamp, 0),
 	}
 }
