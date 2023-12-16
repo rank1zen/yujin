@@ -1,4 +1,4 @@
 bin
 docker-compose.yml
 .env
-helpme.md
+db/migrations/tern.conf

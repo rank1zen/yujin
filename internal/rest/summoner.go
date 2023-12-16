@@ -30,13 +30,8 @@ func (s *SummonerHandler) Register(r *gin.Engine) {
 }
 
 func (s *SummonerHandler) renew(c *gin.Context) {
-	name := c.Param("name")
+	//name := c.Param("name")
 
-	msg, err := s.svc.QueryRiot(c, name)
-	if err != nil {
-		c.JSON(http.StatusNotFound, err)
-	}
-	c.JSON(http.StatusOK, gin.H{"msg":msg})
 }
 
 func (s *SummonerHandler) byPuuid(c *gin.Context) {

@@ -11,13 +11,69 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const listAll = `-- name: ListAll :one
-SELECT id, puuid, account_id, summoner_id, level, profile_icon_id, name, last_revision, time_stamp FROM summoners
-WHERE id = $1 LIMIT 1
+const countSummonerRecords = `-- name: CountSummonerRecords :one
+SELECT count(*) FROM summoners
+WHERE puuid = $1
 `
 
-func (q *Queries) ListAll(ctx context.Context, id pgtype.UUID) (Summoner, error) {
-	row := q.db.QueryRow(ctx, listAll, id)
+func (q *Queries) CountSummonerRecords(ctx context.Context, puuid pgtype.Text) (int64, error) {
+	row := q.db.QueryRow(ctx, countSummonerRecords, puuid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteSummoner = `-- name: DeleteSummoner :exec
+DELETE FROM summoners WHERE id = $1
+`
+
+func (q *Queries) DeleteSummoner(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSummoner, id)
+	return err
+}
+
+const insertSummoner = `-- name: InsertSummoner :one
+INSERT INTO summoners (puuid, account_id, summoner_id, level, profile_icon_id, name, last_revision, time_stamp)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id
+`
+
+type InsertSummonerParams struct {
+	Puuid         pgtype.Text
+	AccountID     pgtype.Text
+	SummonerID    pgtype.Text
+	Level         interface{}
+	ProfileIconID pgtype.Int4
+	Name          pgtype.Text
+	LastRevision  pgtype.Timestamp
+	TimeStamp     pgtype.Timestamp
+}
+
+func (q *Queries) InsertSummoner(ctx context.Context, arg InsertSummonerParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, insertSummoner,
+		arg.Puuid,
+		arg.AccountID,
+		arg.SummonerID,
+		arg.Level,
+		arg.ProfileIconID,
+		arg.Name,
+		arg.LastRevision,
+		arg.TimeStamp,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const selectRecentRecordForSummoner = `-- name: SelectRecentRecordForSummoner :one
+SELECT id, puuid, account_id, summoner_id, level, profile_icon_id, name, last_revision, time_stamp FROM summoners
+WHERE puuid = $1
+ORDER BY time_stamp DESC
+LIMIT 1
+`
+
+func (q *Queries) SelectRecentRecordForSummoner(ctx context.Context, puuid pgtype.Text) (Summoner, error) {
+	row := q.db.QueryRow(ctx, selectRecentRecordForSummoner, puuid)
 	var i Summoner
 	err := row.Scan(
 		&i.ID,
@@ -31,4 +87,46 @@ func (q *Queries) ListAll(ctx context.Context, id pgtype.UUID) (Summoner, error)
 		&i.TimeStamp,
 	)
 	return i, err
+}
+
+const selectRecordsForSummoner = `-- name: SelectRecordsForSummoner :many
+SELECT id, puuid, account_id, summoner_id, level, profile_icon_id, name, last_revision, time_stamp FROM summoners
+WHERE puuid = $1
+ORDER BY time_stamp DESC
+LIMIT $2 OFFSET 10
+`
+
+type SelectRecordsForSummonerParams struct {
+	Puuid pgtype.Text
+	Limit int32
+}
+
+func (q *Queries) SelectRecordsForSummoner(ctx context.Context, arg SelectRecordsForSummonerParams) ([]Summoner, error) {
+	rows, err := q.db.Query(ctx, selectRecordsForSummoner, arg.Puuid, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Summoner
+	for rows.Next() {
+		var i Summoner
+		if err := rows.Scan(
+			&i.ID,
+			&i.Puuid,
+			&i.AccountID,
+			&i.SummonerID,
+			&i.Level,
+			&i.ProfileIconID,
+			&i.Name,
+			&i.LastRevision,
+			&i.TimeStamp,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
