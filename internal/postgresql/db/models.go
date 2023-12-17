@@ -10,12 +10,12 @@ import (
 
 type Summoner struct {
 	ID            pgtype.UUID
-	Puuid         pgtype.Text
-	AccountID     pgtype.Text
-	SummonerID    pgtype.Text
-	Level         interface{}
-	ProfileIconID pgtype.Int4
-	Name          pgtype.Text
+	Puuid         string
+	AccountID     string
+	SummonerID    string
+	Level         int64
+	ProfileIconID int32
+	Name          string
 	LastRevision  pgtype.Timestamp
 	TimeStamp     pgtype.Timestamp
 }

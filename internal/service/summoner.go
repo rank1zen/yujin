@@ -17,7 +17,7 @@ func NewSummonerService(repo *postgresql.SummonerDA) *SummonerService {
 	}
 }
 
-func (s *SummonerService) Create(ctx context.Context, summoner internal.Summoner) (string, error){
+func (s *SummonerService) Create(ctx context.Context, summoner internal.SummonerParams) (string, error){
 	id, err := s.repo.Create(ctx, summoner)
 	if err != nil {
 		return id, internal.WrapErrorf(err, internal.ErrorCodeUnknown, "repo.Create")

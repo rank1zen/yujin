@@ -1,14 +1,26 @@
 -- name: SelectRecentRecordForSummoner :one
-SELECT * FROM summoners
+SELECT
+    level,
+    profile_icon_id,
+    name,
+    last_revision,
+    time_stamp
+FROM summoners
 WHERE puuid = $1
 ORDER BY time_stamp DESC
 LIMIT 1;
 
 -- name: SelectRecordsForSummoner :many
-SELECT * FROM summoners
+SELECT
+    level,
+    profile_icon_id,
+    name,
+    last_revision,
+    time_stamp
+FROM summoners
 WHERE puuid = $1
 ORDER BY time_stamp DESC
-LIMIT $2 OFFSET 10;
+LIMIT $2 OFFSET $3;
 
 -- name: CountSummonerRecords :one
 SELECT count(*) FROM summoners
