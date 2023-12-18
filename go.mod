@@ -3,7 +3,9 @@ module github.com/rank1zen/yujin
 go 1.19
 
 require (
+	github.com/KnutZuidema/golio v0.0.0-20231120132142-dbe175146b47
 	github.com/gin-gonic/gin v1.9.1
+	github.com/google/uuid v1.3.0
 	github.com/jackc/tern/v2 v2.1.1
 	github.com/ory/dockertest/v3 v3.10.0
 )
@@ -28,7 +30,6 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

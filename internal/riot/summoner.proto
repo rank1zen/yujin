@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+
+option go_package = "github.com/rank1zen/yujin/internal/riot";
+
+service SummonerQuery {
+	rpc ByName(SummonerByNameRequest) returns (SummonerResponse) {}
+	rpc ByPuuid(SummonerByPuuidRequest) returns (SummonerResponse) {}
+}
+
+message SummonerByNameRequest {
+	string name = 1;
+}
+
+message SummonerByPuuidRequest {
+	string puuid = 1;
+}
+
+message SummonerResponse {
+	string puuid = 1;
+	string account_id = 2;
+	string summoner_id = 3;
+	int64 level = 4;
+	int32 profile_icon_id = 5;
+	string name = 6;
+	int64 last_revision = 7;
+}

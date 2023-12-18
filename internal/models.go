@@ -1,15 +1,15 @@
 package internal
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 type Summoner struct {
 	Level         int64
 	ProfileIconId int32
 	Name          string
-	LastRevision  pgtype.Timestamp
-	TimeStamp     pgtype.Timestamp
+	LastRevision  time.Time
+	TimeStamp     time.Time
 }
 
 type SummonerParams struct {
@@ -19,6 +19,6 @@ type SummonerParams struct {
 	Level         int64
 	ProfileIconId int32
 	Name          string
-	LastRevision  pgtype.Timestamp
-	TimeStamp     pgtype.Timestamp
+	LastRevision  time.Time
+	TimeStamp     time.Time
 }

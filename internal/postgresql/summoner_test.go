@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
 	"github.com/ory/dockertest/v3"
@@ -50,15 +49,15 @@ func TestMain(m *testing.M) {
 
 	migrator, err := migrate.NewMigrator(ctx, db, "public.schema_version")
 	if err != nil {
-		log.Fatalf("Couldn't create migrator: %s", err)
+		log.Fatalf("Could not create migrator: %s", err)
 	}
 
 	if err = migrator.LoadMigrations(os.DirFS("../../db/migrations")); err != nil {
-		log.Fatalf("Couldn't load migrations: %s", err)
+		log.Fatalf("Could not load migrations: %s", err)
 	}
 
 	if err = migrator.Migrate(ctx); err != nil {
-		log.Fatalf("Couldn't migrate: %s", err)
+		log.Fatalf("Could not migrate: %s", err)
 	}
 
 	code := m.Run()
@@ -112,10 +111,9 @@ func createContainer(pool *dockertest.Pool) *dockertest.Resource {
 	return container
 }
 
-func TestSummonerCreate(t *testing.T) {
-	t.Parallel()
-
-	id, err := postgresql.NewSummonerDA(dbpool).Create(
+func TestSummonerCreateAndDelete(t *testing.T) {
+	q := postgresql.NewSummonerDA(dbpool)
+	id, err := q.Create(
 		context.Background(),
 		internal.SummonerParams{
 			Puuid:         "YUYU",
@@ -124,12 +122,18 @@ func TestSummonerCreate(t *testing.T) {
 			Level:         324,
 			ProfileIconId: 1008,
 			Name:          "YUYU",
-			LastRevision:  pgtype.Timestamp{},
-			TimeStamp:     pgtype.Timestamp{},
+			LastRevision:  time.Now(),
+			TimeStamp:     time.Now(),
 		},
 	)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	t.Logf("created with ID: %T", id)
+
+	t.Logf("created with ID: %s", id)
+
+	err = q.Delete(context.Background(), id)
+	if err != nil {
+		t.Fatalf("expected no error, got %s", err)
+	}
 }
