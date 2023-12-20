@@ -15,7 +15,7 @@ func NewSummonerDA(d db.DBTX) *SummonerDA {
 	return &SummonerDA{q: db.New(d)}
 }
 
-func (s *SummonerDA) Create(ctx context.Context, params internal.SummonerParams) (string, error) {
+func (s *SummonerDA) Create(ctx context.Context, params internal.SummonerWithIds) (string, error) {
 	uuid, err := s.q.InsertSummoner(ctx, db.InsertSummonerParams{
 		Puuid:         params.Puuid,
 		AccountID:     params.AccountId,

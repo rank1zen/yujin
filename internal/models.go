@@ -12,7 +12,7 @@ type Summoner struct {
 	TimeStamp     time.Time
 }
 
-type SummonerParams struct {
+type SummonerWithIds struct {
 	Puuid         string
 	AccountId     string
 	SummonerId    string

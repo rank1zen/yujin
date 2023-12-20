@@ -5,10 +5,12 @@ import (
 
 	"github.com/rank1zen/yujin/internal"
 	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/riot"
 )
 
 type SummonerService struct {
-	repo *postgresql.SummonerDA
+	repo           *postgresql.SummonerDA
+	summonerClient riot.SummonerQueryClient
 }
 
 func NewSummonerService(repo *postgresql.SummonerDA) *SummonerService {
@@ -17,7 +19,7 @@ func NewSummonerService(repo *postgresql.SummonerDA) *SummonerService {
 	}
 }
 
-func (s *SummonerService) Create(ctx context.Context, summoner internal.SummonerParams) (string, error){
+func (s *SummonerService) Create(ctx context.Context, summoner internal.SummonerWithIds) (string, error) {
 	id, err := s.repo.Create(ctx, summoner)
 	if err != nil {
 		return id, internal.WrapErrorf(err, internal.ErrorCodeUnknown, "repo.Create")
@@ -41,4 +43,15 @@ func (s *SummonerService) NewestByPuuid(ctx context.Context, puuid string) (inte
 	}
 
 	return r, nil
+}
+
+func (s *SummonerService) QueryRiot(ctx context.Context, name string) (internal.SummonerWithIds, error) {
+	r, err := s.summonerClient.ByName(ctx, &riot.SummonerByNameRequest{})
+	if err != nil {
+		return internal.SummonerWithIds{}, err
+	}
+	return internal.Summoner{
+
+		Name: r.GetName(),
+	}, nil
 }
