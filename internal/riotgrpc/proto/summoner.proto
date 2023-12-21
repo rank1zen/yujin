@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 
-option go_package = "github.com/rank1zen/yujin/internal/riot";
+option go_package = "github.com/rank1zen/yujin/internal/riotgrpc/proto";
 
 service SummonerQuery {
 	rpc ByName(SummonerByNameRequest) returns (SummonerResponse) {}

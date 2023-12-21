@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v4.25.1
-// source: summoner.proto
+// source: internal/riotgrpc/proto/summoner.proto
 
-package riot
+package proto
 
 import (
 	context "context"
@@ -137,5 +137,5 @@ var SummonerQuery_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "summoner.proto",
+	Metadata: "internal/riotgrpc/proto/summoner.proto",
 }

@@ -1,4 +1,4 @@
-package postgresql_test
+package internal_test
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/rank1zen/yujin/internal"
-	"github.com/rank1zen/yujin/internal/postgresql"
 )
 
 var dbpool *pgxpool.Pool
@@ -52,7 +51,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not create migrator: %s", err)
 	}
 
-	if err = migrator.LoadMigrations(os.DirFS("../../db/migrations")); err != nil {
+	if err = migrator.LoadMigrations(os.DirFS("../db/migrations")); err != nil {
 		log.Fatalf("Could not load migrations: %s", err)
 	}
 
@@ -112,10 +111,10 @@ func createContainer(pool *dockertest.Pool) *dockertest.Resource {
 }
 
 func TestSummonerCreateAndDelete(t *testing.T) {
-	q := postgresql.NewSummonerDA(dbpool)
+	q := internal.NewSummonerClient(dbpool)
 	id, err := q.Create(
 		context.Background(),
-		internal.SummonerParams{
+		internal.SummonerWithIds{
 			Puuid:         "YUYU",
 			AccountId:     "YUYU",
 			SummonerId:    "YUYU",
