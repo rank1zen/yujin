@@ -63,3 +63,13 @@ func (s *SummonerWithIds) CastToDB() db.InsertSummonerParams {
 		TimeStamp:     newTimestamp(s.TimeStamp),
 	}
 }
+
+func CastFromDB(s *db.Summoner) Summoner {
+	return Summoner{
+		Level: s.Level,
+		ProfileIconId: s.ProfileIconID,
+		Name: s.Name,
+		LastRevision: s.LastRevision.Time,
+		TimeStamp: s.TimeStamp.Time,
+	}
+}

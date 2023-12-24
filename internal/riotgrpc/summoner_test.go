@@ -4,67 +4,104 @@ import (
 	"context"
 	"log"
 	"net"
-	_"os"
+	"os"
 	"testing"
 
 	"github.com/KnutZuidema/golio"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
+	"github.com/KnutZuidema/golio/api"
+	"github.com/rank1zen/yujin/internal/riotgrpc"
 	"github.com/rank1zen/yujin/internal/riotgrpc/proto"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 const bufSize = 1024 * 1024
+
 var lis *bufconn.Listener
 
 func TestMain(m *testing.M) {
 	lis = bufconn.Listen(bufSize)
-	//grpcServer := grpc.NewServer()
+	server := grpc.NewServer()
 
+	golioClient := golio.NewClient(
+		"RGAPI-b32ffbca-42f1-4ff1-8afe-241ab41fbbcc",
+		golio.WithRegion(api.RegionNorthAmerica),
+	)
 
-	apiKey := "RGAPI-88780330-dc2d-4ff0-8605-95d03d2c22c9"
-	log.Printf("API KEY: %s", apiKey)
+	proto.RegisterRiotSummonerServer(server, riotgrpc.NewSummonerRpcServer(golioClient))
+	go func() {
+		if err := server.Serve(lis); err != nil {
+			log.Fatalf("server exited with error: %v", err)
+		}
+	}()
 
-	golioClient := golio.NewClient(apiKey)
-	log.Printf("Ok golio up")
+	code := m.Run()
 
-	champ, _ := golioClient.DataDragon.GetChampion("Ashe")
-	log.Printf(champ.ID)
+	defer server.Stop()
+	defer lis.Close()
 
-	//summonerServer := riot.NewSummonerClient(golioClient)
-	//riot.RegisterSummonerQueryServer(grpcServer, summonerServer)
-
-	//go func() {
-		//if err := grpcServer.Serve(lis); err != nil {
-			//log.Fatalf("server exited with error: %v", err)
-		//}
-	//}()
-
-	//code := m.Run()
-	//grpcServer.Stop()
-	//os.Exit(code)
+	os.Exit(code)
 }
 
 func bufDialer(context.Context, string) (net.Conn, error) {
 	return lis.Dial()
 }
 
-func TestBasicQuery(t *testing.T) {
-	t.Logf("running client test")
+func TestOrrange(t *testing.T) {
 	ctx := context.Background()
 	conn, err := grpc.DialContext(
 		ctx,
 		"bufnet",
 		grpc.WithContextDialer(bufDialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
 	defer conn.Close()
+	client := proto.NewRiotSummonerClient(conn)
 
-	client := proto.NewSummonerQueryClient(conn)
-	summoner, err := client.ByName(ctx, &proto.SummonerByNameRequest{Name:"orrange"})
-	if err != nil {
-		t.Fatalf("error in querying summoner: %v", err)
+	expected := proto.Summoner{
+		Puuid:      "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q",
+		SummonerId: "2xCyr5bJbp2BlMSWLRolf9_x0eSbWBay5Bam_9myXFXjZSw",
+		Name:       "orrange",
 	}
-	t.Logf("success: %v", summoner)
+
+	t.Run("ByNameQuery", func(t *testing.T) {
+		summoner, err := client.ByName(
+			ctx,
+			&proto.ByNameRequest{Name: expected.Name},
+		)
+		if err != nil {
+			t.Fatalf("error in querying summoner: %v", err)
+		}
+		if summoner.Puuid != expected.Puuid {
+			t.Fatalf("wrong puuid")
+		}
+	})
+
+	t.Run("GetMatchlistQuery", func(t *testing.T) {
+		_, err := client.GetMatchlist(
+			ctx,
+			&proto.ByPuuidMatchlistRequest{
+				Puuid: expected.Puuid,
+				Start: 0,
+				Count: 5,
+			},
+		)
+		if err != nil {
+			t.Fatalf("error in querying matchlist: %v", err)
+		}
+	})
+
+	t.Run("GetSoloqQuery", func(t *testing.T) {
+		_, err := client.GetSoloq(
+			ctx,
+			&proto.BySummonerIdRequest{SummonerId: expected.SummonerId},
+		)
+		if err != nil {
+			t.Fatalf("error in querying soloq: %v", err)
+		}
+	})
 }

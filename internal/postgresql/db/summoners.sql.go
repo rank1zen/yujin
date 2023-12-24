@@ -66,30 +66,21 @@ func (q *Queries) InsertSummoner(ctx context.Context, arg InsertSummonerParams) 
 }
 
 const selectRecentRecordForSummoner = `-- name: SelectRecentRecordForSummoner :one
-SELECT
-    level,
-    profile_icon_id,
-    name,
-    last_revision,
-    time_stamp
+SELECT id, puuid, account_id, summoner_id, level, profile_icon_id, name, last_revision, time_stamp
 FROM summoners
 WHERE puuid = $1
 ORDER BY time_stamp DESC
 LIMIT 1
 `
 
-type SelectRecentRecordForSummonerRow struct {
-	Level         int64
-	ProfileIconID int32
-	Name          string
-	LastRevision  pgtype.Timestamp
-	TimeStamp     pgtype.Timestamp
-}
-
-func (q *Queries) SelectRecentRecordForSummoner(ctx context.Context, puuid string) (SelectRecentRecordForSummonerRow, error) {
+func (q *Queries) SelectRecentRecordForSummoner(ctx context.Context, puuid string) (Summoner, error) {
 	row := q.db.QueryRow(ctx, selectRecentRecordForSummoner, puuid)
-	var i SelectRecentRecordForSummonerRow
+	var i Summoner
 	err := row.Scan(
+		&i.ID,
+		&i.Puuid,
+		&i.AccountID,
+		&i.SummonerID,
 		&i.Level,
 		&i.ProfileIconID,
 		&i.Name,
@@ -100,12 +91,7 @@ func (q *Queries) SelectRecentRecordForSummoner(ctx context.Context, puuid strin
 }
 
 const selectRecordsForSummoner = `-- name: SelectRecordsForSummoner :many
-SELECT
-    level,
-    profile_icon_id,
-    name,
-    last_revision,
-    time_stamp
+SELECT id, puuid, account_id, summoner_id, level, profile_icon_id, name, last_revision, time_stamp
 FROM summoners
 WHERE puuid = $1
 ORDER BY time_stamp DESC
@@ -118,24 +104,20 @@ type SelectRecordsForSummonerParams struct {
 	Offset int32
 }
 
-type SelectRecordsForSummonerRow struct {
-	Level         int64
-	ProfileIconID int32
-	Name          string
-	LastRevision  pgtype.Timestamp
-	TimeStamp     pgtype.Timestamp
-}
-
-func (q *Queries) SelectRecordsForSummoner(ctx context.Context, arg SelectRecordsForSummonerParams) ([]SelectRecordsForSummonerRow, error) {
+func (q *Queries) SelectRecordsForSummoner(ctx context.Context, arg SelectRecordsForSummonerParams) ([]Summoner, error) {
 	rows, err := q.db.Query(ctx, selectRecordsForSummoner, arg.Puuid, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SelectRecordsForSummonerRow
+	var items []Summoner
 	for rows.Next() {
-		var i SelectRecordsForSummonerRow
+		var i Summoner
 		if err := rows.Scan(
+			&i.ID,
+			&i.Puuid,
+			&i.AccountID,
+			&i.SummonerID,
 			&i.Level,
 			&i.ProfileIconID,
 			&i.Name,

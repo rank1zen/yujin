@@ -1,27 +1,44 @@
 syntax = "proto3";
 
-
 option go_package = "github.com/rank1zen/yujin/internal/riotgrpc/proto";
 
-service SummonerQuery {
-	rpc ByName(SummonerByNameRequest) returns (SummonerResponse) {}
-	rpc ByPuuid(SummonerByPuuidRequest) returns (SummonerResponse) {}
+service RiotSummoner {
+  rpc ByName(ByNameRequest) returns (Summoner) {}
+  rpc ByPuuid(ByPuuidRequest) returns (Summoner) {}
+  rpc BySummonerId(BySummonerIdRequest) returns (Summoner) {}
+
+  rpc GetSoloq(BySummonerIdRequest) returns (LeagueEntry) {}
+  rpc GetMatchlist(ByPuuidMatchlistRequest) returns (Matchlist) {}
 }
 
-message SummonerByNameRequest {
-	string name = 1;
+message ByNameRequest { string name = 1; }
+message ByPuuidRequest { string puuid = 1; }
+message BySummonerIdRequest { string summoner_id = 1; }
+
+message ByPuuidMatchlistRequest {
+  string puuid = 1;
+  int32 start = 2;
+  int32 count = 3;
 }
 
-message SummonerByPuuidRequest {
-	string puuid = 1;
+message Summoner {
+  string puuid = 1;
+  string account_id = 2;
+  string summoner_id = 3;
+  int64 level = 4;
+  int32 profile_icon_id = 5;
+  string name = 6;
+  int64 last_revision = 7;
 }
 
-message SummonerResponse {
-	string puuid = 1;
-	string account_id = 2;
-	string summoner_id = 3;
-	int64 level = 4;
-	int32 profile_icon_id = 5;
-	string name = 6;
-	int64 last_revision = 7;
+message LeagueEntry {
+  string summoner_id = 2;
+  string summoner_name = 3;
+  string tier = 5;
+  string rank = 6;
+  int32 lp = 7;
+  int32 wins = 8;
+  int32 losses = 9;
 }
+
+message Matchlist { repeated string match_ids = 1; }
