@@ -8,14 +8,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Summoner struct {
-	ID            pgtype.UUID
-	Puuid         string
+type SummonerRecord struct {
+	RecordID      pgtype.UUID
+	RecordDate    pgtype.Timestamp
 	AccountID     string
-	SummonerID    string
-	Level         int64
 	ProfileIconID int32
+	RevisionDate  int64
 	Name          string
-	LastRevision  pgtype.Timestamp
-	TimeStamp     pgtype.Timestamp
+	ID            string
+	Puuid         string
+	SummonerLevel int64
 }

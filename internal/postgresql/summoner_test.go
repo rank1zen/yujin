@@ -1,4 +1,4 @@
-package internal_test
+package postgresql_test
 
 import (
 	"context"
@@ -13,33 +13,72 @@ import (
 	"github.com/jackc/tern/v2/migrate"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	"github.com/rank1zen/yujin/internal"
+	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/postgresql/db"
+	"github.com/stretchr/testify/require"
 )
 
 var dbpool *pgxpool.Pool
 
-func TestMain(m *testing.M) {
-	dockerPool := initDocker()
-	resource := createContainer(dockerPool)
+func TestSummonerRecordInsertAndDelete(t *testing.T) {
+	t.Parallel()
 
-	databaseUrl := fmt.Sprintf("postgres://yuyu:yuyu@localhost:%s/summoners?sslmode=disable", resource.GetPort("5432/tcp"))
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
 
-	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
-	if err := dockerPool.Retry(
-		func() error {
-			ctx := context.Background()
-			var err error
-			dbpool, err = pgxpool.New(ctx, databaseUrl)
-			if err != nil {
-				return err
-			}
-			return dbpool.Ping(ctx)
-		},
-	); err != nil {
-		log.Fatalf("Could not pool to database: %s", err)
+	q := db.New(dbpool)
+
+	args := db.InsertSummonerParams{
+		RecordDate: postgresql.NewTimestamp(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
 	}
 
-	ctx := context.Background()
+	id, err := q.InsertSummoner(ctx, args)
+	require.NoError(t, err)
+
+	err = q.DeleteSummoner(ctx, id)
+	require.NoError(t, err)
+}
+
+func TestInsertTimeout(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Nanosecond)
+	defer cancel()
+
+	q := db.New(dbpool)
+
+	args := db.InsertSummonerParams{
+		RecordDate: postgresql.NewTimestamp(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
+	}
+
+	_, err := q.InsertSummoner(ctx, args)
+	require.Error(t, err)
+}
+
+func TestMain(m *testing.M) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	pool, err := dockertest.NewPool("")
+	if err != nil {
+		log.Fatalf("Could not connect to docker: %s", err)
+	}
+
+	resource := createContainer(pool)
+
+	databaseUrl := fmt.Sprintf("postgres://postgres:yuyu@localhost:%s/postgres?sslmode=disable", resource.GetPort("5432/tcp"))
+
+	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
+	if err := pool.Retry(func() error {
+		var err error
+		dbpool, err = pgxpool.New(ctx, databaseUrl)
+		if err != nil {
+			return err
+		}
+		return dbpool.Ping(ctx)
+	}); err != nil {
+		log.Fatalf("Could not pool to database: %s", err)
+	}
 
 	db, err := pgx.Connect(ctx, databaseUrl)
 	if err != nil {
@@ -51,7 +90,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not create migrator: %s", err)
 	}
 
-	if err = migrator.LoadMigrations(os.DirFS("../db/migrations")); err != nil {
+	if err = migrator.LoadMigrations(os.DirFS("../../db/migrations")); err != nil {
 		log.Fatalf("Could not load migrations: %s", err)
 	}
 
@@ -61,28 +100,11 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	if err := dockerPool.Purge(resource); err != nil {
+	if err := pool.Purge(resource); err != nil {
 		log.Fatalf("Could not purge resource: %s", err)
 	}
 
 	os.Exit(code)
-}
-
-func initDocker() *dockertest.Pool {
-	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
-	pool, err := dockertest.NewPool("")
-	if err != nil {
-		log.Fatalf("Could not construct pool: %s", err)
-	}
-
-	// uses pool to try to connect to Docker
-	err = pool.Client.Ping()
-	if err != nil {
-		log.Fatalf("Could not connect to Docker: %s", err)
-	}
-
-	pool.MaxWait = 60 * time.Second
-	return pool
 }
 
 func createContainer(pool *dockertest.Pool) *dockertest.Resource {
@@ -93,8 +115,6 @@ func createContainer(pool *dockertest.Pool) *dockertest.Resource {
 			Tag:        "15-alpine3.18",
 			Env: []string{
 				"POSTGRES_PASSWORD=yuyu",
-				"POSTGRES_USER=yuyu",
-				"POSTGRES_DB=summoners",
 				"listen_addresses = '*'",
 			},
 		},
@@ -108,31 +128,4 @@ func createContainer(pool *dockertest.Pool) *dockertest.Resource {
 	}
 	container.Expire(60)
 	return container
-}
-
-func TestSummonerCreateAndDelete(t *testing.T) {
-	q := internal.NewSummonerClient(dbpool)
-	id, err := q.Create(
-		context.Background(),
-		internal.SummonerWithIds{
-			Puuid:         "YUYU",
-			AccountId:     "YUYU",
-			SummonerId:    "YUYU",
-			Level:         324,
-			ProfileIconId: 1008,
-			Name:          "YUYU",
-			LastRevision:  time.Now(),
-			TimeStamp:     time.Now(),
-		},
-	)
-	if err != nil {
-		t.Fatalf("expected no error, got %s", err)
-	}
-
-	t.Logf("created with ID: %s", id)
-
-	err = q.Delete(context.Background(), id)
-	if err != nil {
-		t.Fatalf("expected no error, got %s", err)
-	}
 }

@@ -1,25 +1,46 @@
--- name: SelectRecentRecordForSummoner :one
+-- name: SelectSummonerRecentByPuuid :one
 SELECT *
-FROM summoners
+FROM summoner_records
 WHERE puuid = $1
-ORDER BY time_stamp DESC
+ORDER BY record_date DESC
 LIMIT 1;
 
--- name: SelectRecordsForSummoner :many
+-- name: SelectSummonerRecords :many
 SELECT *
-FROM summoners
+FROM summoner_records
+ORDER BY record_date DESC
+LIMIT $1
+OFFSET $2;
+
+-- name: SelectSummonerRecordsByPuuid :many
+SELECT *
+FROM summoner_records
 WHERE puuid = $1
-ORDER BY time_stamp DESC
-LIMIT $2 OFFSET $3;
+ORDER BY record_date DESC
+LIMIT $2
+OFFSET $3;
+
+-- name: SelectSummonerRecordsNoIds :many
+SELECT record_date, revision_date, name, summoner_level
+FROM summoner_records
+ORDER BY record_date DESC
+LIMIT $1
+OFFSET $2;
 
 -- name: CountSummonerRecords :one
-SELECT count(*) FROM summoners
+SELECT count(*)
+FROM summoner_records;
+
+-- name: CountSummonerRecordsByPuuid :one
+SELECT count(*)
+FROM summoner_records
 WHERE puuid = $1;
 
 -- name: InsertSummoner :one
-INSERT INTO summoners (puuid, account_id, summoner_id, level, profile_icon_id, name, last_revision, time_stamp)
+INSERT INTO summoner_records (puuid, account_id, id, summoner_level, profile_icon_id, name, revision_date, record_date)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id;
+RETURNING record_id;
 
 -- name: DeleteSummoner :exec
-DELETE FROM summoners WHERE id = $1;
+DELETE FROM summoner_records
+WHERE record_id = $1;

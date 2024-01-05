@@ -12,16 +12,17 @@ const SOLO_QUEUE = "RANKED_SOLO_5x5"
 
 var queue = 420
 
-type Summoner struct {
+type summonerRpcServer struct {
 	proto.UnimplementedRiotSummonerServer
+
 	gc *golio.Client
 }
 
-func NewSummonerRpcServer(gc *golio.Client) *Summoner {
-	return &Summoner{gc: gc}
+func NewSummonerRpcServer(gc *golio.Client) *summonerRpcServer {
+	return &summonerRpcServer{gc: gc}
 }
 
-func (s *Summoner) ByName(ctx context.Context, req *proto.ByNameRequest) (*proto.Summoner, error) {
+func (s *summonerRpcServer) ByName(ctx context.Context, req *proto.ByNameRequest) (*proto.Summoner, error) {
 	name := req.GetName()
 	ls, err := s.gc.Riot.LoL.Summoner.GetByName(name)
 	if err != nil {
@@ -30,7 +31,7 @@ func (s *Summoner) ByName(ctx context.Context, req *proto.ByNameRequest) (*proto
 	return cast(ls), nil
 }
 
-func (s *Summoner) ByPuuid(ctx context.Context, req *proto.ByPuuidRequest) (*proto.Summoner, error) {
+func (s *summonerRpcServer) ByPuuid(ctx context.Context, req *proto.ByPuuidRequest) (*proto.Summoner, error) {
 	puuid := req.GetPuuid()
 	ls, err := s.gc.Riot.LoL.Summoner.GetByPUUID(puuid)
 	if err != nil {
@@ -39,16 +40,16 @@ func (s *Summoner) ByPuuid(ctx context.Context, req *proto.ByPuuidRequest) (*pro
 	return cast(ls), nil
 }
 
-func (s *Summoner) BySummonerId(ctx context.Context, req *proto.BySummonerIdRequest) (*proto.Summoner, error) {
-	sumId := req.GetSummonerId()
-	ls, err := s.gc.Riot.LoL.Summoner.GetByID(sumId)
+func (s *summonerRpcServer) BySummonerId(ctx context.Context, req *proto.BySummonerIdRequest) (*proto.Summoner, error) {
+	id := req.GetSummonerId()
+	ls, err := s.gc.Riot.LoL.Summoner.GetByID(id)
 	if err != nil {
 		return &proto.Summoner{}, err
 	}
 	return cast(ls), nil
 }
 
-func (s *Summoner) GetSoloq(ctx context.Context, req *proto.BySummonerIdRequest) (*proto.LeagueEntry, error) {
+func (s *summonerRpcServer) GetSoloq(ctx context.Context, req *proto.BySummonerIdRequest) (*proto.LeagueEntry, error) {
 	summonerId := req.GetSummonerId()
 	entries, err := s.gc.Riot.LoL.League.ListBySummoner(summonerId)
 	if err != nil {
@@ -70,7 +71,7 @@ func (s *Summoner) GetSoloq(ctx context.Context, req *proto.BySummonerIdRequest)
 	return soloq, nil
 }
 
-func (s *Summoner) GetMatchlist(ctx context.Context, req *proto.ByPuuidMatchlistRequest) (*proto.Matchlist, error) {
+func (s *summonerRpcServer) GetMatchlist(ctx context.Context, req *proto.ByPuuidMatchlistRequest) (*proto.Matchlist, error) {
 	ml, err := s.gc.Riot.LoL.Match.List(
 		req.GetPuuid(),
 		int(req.GetStart()),
