@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/tern/v2/migrate"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	"github.com/rank1zen/yujin/internal/postgresql"
-	"github.com/rank1zen/yujin/internal/postgresql/db"
+	"github.com/rank1zen/yujin/postgresql"
+	"github.com/rank1zen/yujin/postgresql/db"
 	"github.com/stretchr/testify/require"
 )
 

@@ -1,30 +1,31 @@
-# syntax=docker/dockerfile:1
+##
+## Build
+##
 
-# Build the application from source
-FROM golang:1.21 AS build-stage
+FROM golang:1.19 AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-COPY go.mod go.sum ./
+COPY go.mod .
+COPY go.sum .
 RUN go mod download
 
-COPY . ./
+COPY . .
  
-RUN CGO_ENABLED=0 go build -o /rest-server ./cmd/rest-server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /yujin ./cmd/yujin
 
-# Run the tests in the container
-FROM build-stage AS run-test-stage
-RUN go test -v ./...
+##
+## Deploy
+##
 
-# Deploy the application binary into a lean image
-FROM gcr.io/distroless/base-debian11 AS build-release-stage
+FROM gcr.io/distroless/base-debian11
 
 WORKDIR /
 
-COPY --from=build-stage /rest-server /rest-server
+COPY --from=builder /yujin /yujin
 
 EXPOSE 8080
 
 USER nonroot:nonroot
 
-ENTRYPOINT ["/rest-server"]
+ENTRYPOINT ["/yujin"]

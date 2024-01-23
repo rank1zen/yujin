@@ -1,4 +1,2 @@
-bin
-docker-compose.yml
 *.envrc
 db/migrations/tern.conf
