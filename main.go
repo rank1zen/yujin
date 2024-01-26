@@ -1,54 +1,58 @@
-package yujin
+package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/kelseyhightower/envconfig"
-	"github.com/rank1zen/yujin/postgresql/db"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
+	"github.com/rank1zen/yujin/postgresql"
 )
 
-type Config struct {
-	Debug              bool   `required:"true"`
-	PostgresConnString string `required:"true" split_words:"true"`
-	Addr               string `required:"true"`
-}
-
 func main() {
-	var conf Config
-	err := envconfig.Process("YUJIN", &conf)
+	e := echo.New()
+	e.Logger.SetLevel(log.DEBUG)
+
+	conf, err := LoadConfig()
 	if err != nil {
-		log.Fatal(err)
+		e.Logger.Fatal("can't load config")
 	}
 
-	pool, err := pgxpool.New(context.Background(), conf.PostgresConnString)
+	e.Use(middleware.Logger())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	e.Logger.Info("trying to connect to postgresql")
+	pool, err := postgresql.NewPool(ctx, conf.PostgresConnString)
 	if err != nil {
-		log.Fatal(err)
+		e.Logger.Fatal("can't make a pool")
 	}
 
-	router := gin.Default()
-	router.Use(ErrorHandler())
-	v1 := router.Group("/v1")
+	e.GET("/", HandleHome())
+	RegisterRoutes(e, pool)
 
-	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, "Welcome YUJIN.GG")
-	})
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
-	router.GET("/ready", func(c *gin.Context) {
-		err := pool.Ping(c)
-		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": err.Error()})
-			return
+	go func() {
+		err := e.Start(fmt.Sprintf(":%d", conf.ServerPort))
+		if err != nil && err != http.ErrServerClosed {
+			e.Logger.Fatal("shutting down the server")
 		}
-		c.JSON(http.StatusOK, "db is up")
-	})
+	}()
 
-	v1.GET("/get", HandleGetSummonerRecordsByName(db.New(pool)))
-	v1.POST("/renew", HandlePostSummonerRecord(db.New(pool)))
+	<-ctx.Done()
 
-	router.Run()
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
+	if err := e.Shutdown(ctx); err != nil {
+		e.Logger.Fatal(err)
+	}
 }

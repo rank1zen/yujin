@@ -1,39 +1,36 @@
-package yujin_test
+package main_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
-	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/rank1zen/yujin"
-	"github.com/rank1zen/yujin/postgresql"
-	"github.com/rank1zen/yujin/postgresql/db"
-	log "github.com/sirupsen/logrus"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/rank1zen/yujin"
 )
 
-func TestGetSummonerRecordsByPuuid(t *testing.T) {
-	r := gin.New()
-	r.Use(yujin.ErrorHandler())
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	conn := postgresql.NewConnection(t)
-
-	err := conn.Ping(ctx)
-	if err != nil {
-		log.Fatalf("failed to ping db: %v", err)
+func TestPostMatch(t *testing.T) {
+	tests := []struct {
+		payload string
+		httpStatusCode int
+	}{
+		{payload: `{"match_id":1}`, httpStatusCode: http.StatusServiceUnavailable},
+		{payload: `{"match_id":"TESTINGTESTING"}`, httpStatusCode: http.StatusCreated},
 	}
 
-	r.GET("/v1/:puuid", yujin.HandleGetSummonerRecordsByPuuid(db.New(conn)))
+	e := echo.New()
+	h := main.HandlePostMatch()
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/v1/testing", nil)
-	r.ServeHTTP(w, req)
+	for _, tc := range tests {
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.payload))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
 
-	log.Print(w.Body)
-	assert.Equal(t, 200, w.Code)
+		if assert.NoError(t, h(c)) {
+			assert.Equal(t, tc.httpStatusCode, rec.Code)
+		}
+	}
 }

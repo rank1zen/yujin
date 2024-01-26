@@ -1,129 +1,116 @@
-package yujin
+package main
 
 import (
-	"context"
-	"errors"
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/labstack/echo/v4"
 	"github.com/rank1zen/yujin/postgresql"
-	"github.com/rank1zen/yujin/postgresql/db"
 )
 
-func HandleGetSummonerRecordsByPuuid(q *db.Queries) gin.HandlerFunc {
-	type Uri struct {
-		Puuid string `uri:"puuid" binding:"required"`
+func HandleGetSummonerRecordsByPuuid() echo.HandlerFunc {
+	type PathParam struct {
+		Puuid string `param:"puuid"`
 	}
-	return func(c *gin.Context) {
-		var uri Uri
-		err := c.ShouldBindUri(&uri)
-		if err != nil {
-			c.Error(err)
-			return
+	return func(c echo.Context) error {
+		var path PathParam
+		if err := c.Bind(&path); err != nil {
+			return echo.NewBindingError("puuid", nil, nil, err)
 		}
 
-		qctx, cancel := context.WithTimeout(c, 1*time.Second)
-		defer cancel()
-
-		params := db.SelectSummonerRecordsByPuuidParams{
-			Puuid:  pgtype.Text{String: uri.Puuid, Valid: true},
-			Limit:  20,
-			Offset: 0,
-		}
-
-		r, err := q.SelectSummonerRecordsByPuuid(qctx, params)
-		if err != nil {
-			c.Error(err)
-			return
-		}
-
-		c.JSON(http.StatusOK, r)
+		return c.String(http.StatusOK, "Not Implemented")
 	}
 }
 
-func HandleGetSummonerRecordsByName(q *db.Queries) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		qctx, cancel := context.WithTimeout(c, 1*time.Second)
-		defer cancel()
-
-		_ = c.Param("name")
-		params := db.SelectSummonerRecordsByNameParams{
-			Limit:  20,
-			Offset: 0,
-		}
-
-		r, err := q.SelectSummonerRecordsByName(qctx, params)
-		if err != nil {
-			c.Error(err)
-			return
-		}
-
-		c.JSON(http.StatusOK, r)
+func HandleGetSummonerRecordsByName() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.String(http.StatusOK, "Not Implemented")
 	}
 }
 
-func HandlePostSummonerRecord(q *db.Queries) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var params db.InsertSummonerRecordParams
-		err := c.ShouldBindJSON(&params)
-		if err != nil {
-			c.Error(err)
-			return
+type PostSummonerRecordRequest struct {
+	RecordDate    time.Time `json:"record_date" validate:"required"`
+	AccountId     string    `json:"account_id"`
+	ProfileIconId int32     `json:"profile_icon_id"`
+	RevisionDate  int64     `json:"revision_date"`
+	Name          string    `json:"name"`
+	Puuid         string    `json:"puuid"`
+	SummonerLevel int64     `json:"summoner_level"`
+}
+
+func HandlePostSummonerRecord() echo.HandlerFunc {
+	return func(c echo.Context) (err error) {
+		var request PostSummonerRecordRequest
+		if err = c.Bind(&request); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 
-		qctx, cancel := context.WithTimeout(c, 1*time.Second)
-		defer cancel()
-
-		uuid, err := q.InsertSummonerRecord(qctx, params)
-		if err != nil {
-			c.Error(err)
-			return
+		if err = c.Validate(request); err != nil {
+			return err
 		}
 
-		c.JSON(http.StatusOK, postgresql.UUIDString(uuid))
+		return c.String(http.StatusOK, "Not Implemented")
 	}
 }
 
-func HandleGetSoloqRecordByName(q *db.Queries) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func HandleGetSoloqRecordByName() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.String(http.StatusOK, "Not Implemented")
 	}
 }
 
-func HandlePostSoloqRecord(q *db.Queries) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		qctx, cancel := context.WithTimeout(c, 1*time.Second)
-		defer cancel()
-
-		var params db.InsertSoloqRecordParams
-		err := c.ShouldBindJSON(&params)
-		if err != nil {
-			c.Error(err)
-			return
-		}
-
-		uuid, err := q.InsertSoloqRecord(qctx, params)
-		if err != nil {
-			c.Error(err)
-			return
-		}
-
-		c.JSON(http.StatusOK, postgresql.UUIDString(uuid))
+func HandlePostSoloqRecord() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.String(http.StatusOK, "Not Implemented")
 	}
 }
 
-func ErrorHandler() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Next()
-		for _, err := range c.Errors {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"pgx error": err})
-			} else {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"unknown error": err})
-			}
+func HandleGetMatch() echo.HandlerFunc {
+	type PathParam struct {
+		MatchId string `param:"id"`
+	}
+	return func(c echo.Context) (err error) {
+		var path PathParam
+		if err := c.Bind(&path); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
+
+		// database
+
+		return c.String(http.StatusOK, "Not Implemented")
+	}
+}
+
+type PostMatchRequest struct {
+	MatchId string `json:"match_id" validate:"required"`
+}
+
+func HandlePostMatch() echo.HandlerFunc {
+	return func(c echo.Context) (err error) {
+		var request PostMatchRequest
+		if err = c.Bind(&request); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+
+		// database
+
+		return c.String(http.StatusCreated, "Not Implemented")
+	}
+}
+
+func HandleHome() echo.HandlerFunc {
+	return func(c echo.Context) (err error) {
+		return c.String(http.StatusOK, "Welcome to YUJIN.GG")
+	}
+}
+
+func HandleHealth(p *pgxpool.Pool) echo.HandlerFunc {
+	return func(c echo.Context) (err error) {
+		if err = postgresql.CheckConn(p); err != nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
+		}
+
+		return c.String(http.StatusOK, "Hi")
 	}
 }
