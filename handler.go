@@ -4,9 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
-	"github.com/rank1zen/yujin/postgresql"
 )
 
 func HandleGetSummonerRecordsByPuuid() echo.HandlerFunc {
@@ -66,6 +64,18 @@ func HandlePostSoloqRecord() echo.HandlerFunc {
 	}
 }
 
+func HandleGetSummonerRecordCountByPuuid() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.String(http.StatusOK, "Not Implemented")
+	}
+}
+
+func HandleGetSoloqRecordById() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.String(http.StatusOK, "Not Implemented")
+	}
+}
+
 func HandleGetMatch() echo.HandlerFunc {
 	type PathParam struct {
 		MatchId string `param:"id"`
@@ -102,15 +112,5 @@ func HandlePostMatch() echo.HandlerFunc {
 func HandleHome() echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
 		return c.String(http.StatusOK, "Welcome to YUJIN.GG")
-	}
-}
-
-func HandleHealth(p *pgxpool.Pool) echo.HandlerFunc {
-	return func(c echo.Context) (err error) {
-		if err = postgresql.CheckConn(p); err != nil {
-			return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
-		}
-
-		return c.String(http.StatusOK, "Hi")
 	}
 }

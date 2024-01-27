@@ -48,12 +48,12 @@ WHERE summoner_name = $1
 ORDER BY record_date DESC
 LIMIT $2 OFFSET $3;
 
--- name: CountSummonerRecordsByName :one
+-- name: CountSummonerRecordsByPuuid :one
 SELECT COUNT(*)
 FROM summoner_records
-WHERE name = $1;
+WHERE puuid = $1;
 
--- name: CountSoloqRecordsByName :one
+-- name: CountSoloqRecordsById :one
 SELECT COUNT(*)
 FROM soloq_records
-WHERE summoner_name = $1;
+WHERE summoner_id = $1;

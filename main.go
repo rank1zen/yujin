@@ -9,29 +9,28 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
 	"github.com/rank1zen/yujin/postgresql"
+	"go.uber.org/zap"
 )
 
 func main() {
 	e := echo.New()
-	e.Logger.SetLevel(log.DEBUG)
+
+	log, _ := zap.NewProduction()
+
+	e.Use(MiddleZapLogger(log))
 
 	conf, err := LoadConfig()
 	if err != nil {
-		e.Logger.Fatal("can't load config")
+		log.Warn("can't load config. defaulting to preset")
 	}
-
-	e.Use(middleware.Logger())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	e.Logger.Info("trying to connect to postgresql")
-	pool, err := postgresql.NewPool(ctx, conf.PostgresConnString)
+	pool, err := postgresql.BackoffRetryPool(ctx, conf.PostgresConnString, log)
 	if err != nil {
-		e.Logger.Fatal("can't make a pool")
+		log.Warn("can't connect to database")
 	}
 
 	e.GET("/", HandleHome())
@@ -40,10 +39,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
+	log.Info("ready to serve")
 	go func() {
 		err := e.Start(fmt.Sprintf(":%d", conf.ServerPort))
 		if err != nil && err != http.ErrServerClosed {
-			e.Logger.Fatal("shutting down the server")
+			log.Fatal("shutting down server...")
 		}
 	}()
 
@@ -53,6 +53,6 @@ func main() {
 	defer cancel()
 
 	if err := e.Shutdown(ctx); err != nil {
-		e.Logger.Fatal(err)
+		log.Fatal(err.Error())
 	}
 }
