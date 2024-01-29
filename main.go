@@ -14,16 +14,16 @@ import (
 )
 
 func main() {
-	e := echo.New()
-
-	log, _ := zap.NewProduction()
-
-	e.Use(MiddleZapLogger(log))
+	log := zap.Must(zap.NewDevelopment())
+	defer log.Sync()
 
 	conf, err := LoadConfig()
 	if err != nil {
 		log.Warn("can't load config. defaulting to preset")
 	}
+
+	e := echo.New()
+	e.Use(MiddleZapLogger(log))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -39,7 +39,6 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	log.Info("ready to serve")
 	go func() {
 		err := e.Start(fmt.Sprintf(":%d", conf.ServerPort))
 		if err != nil && err != http.ErrServerClosed {

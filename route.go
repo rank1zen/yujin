@@ -1,22 +1,23 @@
 package main
 
 import (
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
+	"github.com/rank1zen/yujin/postgresql"
 )
 
-func RegisterRoutes(e *echo.Echo, p *pgxpool.Pool) {
+func RegisterRoutes(e *echo.Echo, q *postgresql.Queries) {
 	v1 := e.Group("/v1")
 
 	m := []echo.MiddlewareFunc{
-		MiddleDbHealth(p),
+		MiddleDbConn(p),
 	}
 
-	summoner := v1.Group("/summoner")
-	summoner.GET("/puuid/by/:puuid", HandleGetSummonerRecordsByPuuid(), m...)
-	summoner.GET("/puuid/count/:puuid", HandleGetSummonerRecordCountByPuuid(), m...)
-	summoner.GET("/name/:name", HandleGetSummonerRecordsByName(), m...)
-	summoner.POST("/", HandlePostSummonerRecord(), m...)
+	summonerv4 := v1.Group("/summonerv4")
+	summonerv4.GET("/puuid/by/:puuid", HandleGetSummonerRecordsByPuuid(q), m...)
+	summonerv4.GET("/puuid/count/:puuid", HandleGetSummonerRecordCountByPuuid(q), m...)
+	summonerv4.GET("/name/by/:name", HandleGetSummonerRecordsByName(q), m...)
+	summonerv4.POST("/", HandlePostSummonerRecord(q), m...)
+	summonerv4.DELETE("/by", HandleDeleteSummonerRecord(q), m...)
 
 	soloq := v1.Group("/soloq")
 	soloq.GET("/id/by/:id", HandleGetSoloqRecordById(), m...)

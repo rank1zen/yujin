@@ -3,13 +3,13 @@ package main
 import "github.com/kelseyhightower/envconfig"
 
 type Config struct {
-	Debug         bool
-	ServerPort int `split_words:"true"`
-	PostgresConnString string `required:"true" split_words:"true"`
+	Debug              bool
+	ServerPort         int    `split_words:"true"`
+	PostgresConnString string `split_words:"true" required:"true"`
 }
 
 var conf = Config{
-	Debug: true,
+	Debug:      true,
 	ServerPort: 1323,
 }
 

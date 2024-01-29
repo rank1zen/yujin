@@ -41,7 +41,7 @@ func MiddleZapLogger(l *zap.Logger) echo.MiddlewareFunc {
 	return middleware.RequestLoggerWithConfig(conf)
 }
 
-func MiddleDbHealth(p *pgxpool.Pool) echo.MiddlewareFunc {
+func MiddleDbConn(p *pgxpool.Pool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

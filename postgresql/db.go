@@ -3,40 +3,46 @@ package postgresql
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
 	"go.uber.org/zap"
 )
 
-func Migrate(ctx context.Context, conn *pgx.Conn, log *zap.Logger) {
-	log.Info("migrating database")
-
-	migrator, err := migrate.NewMigrator(ctx, conn, "public.schema_version")
+func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	conn, err := pool.Acquire(ctx)
 	if err != nil {
-		log.Fatal("Could not create migrator: %s", zap.Error(err))
+		return err
+	}
+
+	migrator, err := migrate.NewMigrator(ctx, conn.Conn(), "public.schema_version")
+	if err != nil {
+		return fmt.Errorf("could not create migrator: %w", err)
 	}
 
 	err = migrator.LoadMigrations(os.DirFS("../db/migrations"))
 	if err != nil {
-		log.Fatal("Could not load migrations: %s", zap.Error(err))
+		return fmt.Errorf("could not load migrations: %w", err)
 	}
 
 	err = migrator.Migrate(ctx)
 	if err != nil {
-		log.Fatal("Could not migrate: %s", zap.Error(err))
+		return fmt.Errorf("could not migrate: %w", err)
 	}
+
+	return nil
 }
 
 func BackoffRetryPool(ctx context.Context, url string, log *zap.Logger) (*pgxpool.Pool, error) {
 	var pool *pgxpool.Pool
 
 	op := func() error {
-		pool, err := pgxpool.New(ctx, url)
+		var err error
+		pool, err = pgxpool.New(ctx, url)
 		if err != nil {
 			return err
 		}
@@ -46,10 +52,8 @@ func BackoffRetryPool(ctx context.Context, url string, log *zap.Logger) (*pgxpoo
 	b := backoff.NewExponentialBackOff()
 
 	notify := func(err error, d time.Duration) {
-		log.Warn("could not connect to postgres", zap.Duration("backoff", d))
+		log.Warn("could not connect to postgres", zap.Error(err))
 	}
-
-	log.Info("connecting to postgresql")
 
 	if err := backoff.RetryNotify(op, backoff.WithMaxRetries(b, 5), notify); err != nil {
 		return nil, err
