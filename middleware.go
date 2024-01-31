@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -47,9 +48,14 @@ func MiddleDbConn(p *pgxpool.Pool) echo.MiddlewareFunc {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			if err := postgresql.CheckPool(ctx, p); err != nil {
+			if p == nil {
+				return errors.New("no database connection")
+			}
+
+			if err := p.Ping(ctx); err != nil {
 				return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
 			}
+
 			return next(c)
 		}
 	}

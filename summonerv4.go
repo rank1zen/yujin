@@ -38,7 +38,7 @@ func HandleGetSummonerRecordCountByPuuid(q *postgresql.Queries) echo.HandlerFunc
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 
-		count, err := postgresql.CountSummonerRecordsByPuuid(ctx, path.Puuid)
+		count, err := q.CountSummonerRecordsByPuuid(ctx, path.Puuid)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
 		}
