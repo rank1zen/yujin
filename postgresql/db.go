@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
-	"go.uber.org/zap"
 )
 
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
@@ -37,7 +35,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-func BackoffRetryPool(ctx context.Context, url string, log *zap.Logger) (*pgxpool.Pool, error) {
+func BackoffRetryPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	var pool *pgxpool.Pool
 
 	op := func() error {
@@ -51,11 +49,7 @@ func BackoffRetryPool(ctx context.Context, url string, log *zap.Logger) (*pgxpoo
 
 	b := backoff.NewExponentialBackOff()
 
-	notify := func(err error, d time.Duration) {
-		log.Warn("could not connect to postgres", zap.Error(err))
-	}
-
-	if err := backoff.RetryNotify(op, backoff.WithMaxRetries(b, 5), notify); err != nil {
+	if err := backoff.Retry(op, backoff.WithMaxRetries(b, 5)); err != nil {
 		return nil, err
 	}
 

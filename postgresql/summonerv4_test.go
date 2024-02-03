@@ -7,40 +7,45 @@ import (
 
 	"github.com/rank1zen/yujin/postgresql"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
+	"github.com/stretchr/testify/require"
 )
 
-func TestPGX(t *testing.T) {
+func TestInsertSummonerRecord(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	addr := postgresql.NewDockerResource(t)
 
-	log := zap.Must(zap.NewProduction())
-
-	pool, err := postgresql.BackoffRetryPool(ctx, addr, log)
-	assert.NoError(t, err)
+	pool, err := postgresql.BackoffRetryPool(ctx, addr)
+	require.NoError(t, err)
 
 	db := postgresql.NewQueries(pool)
 
 	err = postgresql.Migrate(ctx, pool)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	arg := &postgresql.SummonerRecord{
-		RecordDate:    time.Now(),
-		AccountId:     "hi",
-		ProfileIconId: 120,
-		RevisionDate:  1230,
-		Name:          "ni",
-		SummonerId:    "ad",
-		Puuid:         "hi",
-		SummonerLevel: 123,
+	tests := []struct {
+		arg postgresql.SummonerRecordArg
+		ts  time.Time
+	}{
+		{
+			arg: postgresql.SummonerRecordArg{},
+			ts:  time.Date(2000, 0, 0, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			arg: postgresql.SummonerRecordArg{},
+			ts:  time.Now(),
+		},
 	}
 
-	id, err := db.InsertSummonerRecord(ctx, arg)
-	assert.NoError(t, err)
+	for _, test := range tests {
+		id, err := db.InsertSummonerRecord(ctx, &test.arg, test.ts)
+		assert.NoError(t, err)
 
-	record, err := db.SelectSummonerRecordById(ctx, id)
-	assert.NoError(t, err)
-	assert.Equal(t, record.Name, arg.Name)
+		record, err := db.SelectSummonerRecord(ctx, id)
+		if assert.NoError(t, err) {
+			assert.Equal(t, record.RecordId, id)
+			assert.Equal(t, record.RecordDate, test.ts)
+		}
+	}
 }

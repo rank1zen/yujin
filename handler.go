@@ -7,6 +7,16 @@ import (
 	"github.com/rank1zen/yujin/postgresql"
 )
 
+type SummonerProfileQuery struct {
+}
+
+type SummonerProfileBody struct {
+	Name       string `json:"name"`
+	Puuid      string `json:"puuid"`
+	AccountId  string `json:"account_id"`
+	SummonerId string `json:"summoner_id"`
+}
+
 func HandleHome() echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
 		return c.JSON(http.StatusOK, "Welcome to YUJIN.GG")

@@ -2,14 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/rank1zen/yujin/postgresql"
 	"go.uber.org/zap"
 )
 
@@ -42,17 +40,18 @@ func MiddleZapLogger(l *zap.Logger) echo.MiddlewareFunc {
 	return middleware.RequestLoggerWithConfig(conf)
 }
 
-func MiddleDbConn(p *pgxpool.Pool) echo.MiddlewareFunc {
+func CheckHealth(p *pgxpool.Pool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			if p == nil {
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "database is nil")
+			}
+
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			if p == nil {
-				return errors.New("no database connection")
-			}
-
-			if err := p.Ping(ctx); err != nil {
+			err := p.Ping(ctx)
+			if err != nil {
 				return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
 			}
 

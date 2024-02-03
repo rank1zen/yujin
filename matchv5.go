@@ -6,6 +6,10 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+type MatchBody struct {
+	MatchId string `json:"match_id" validate:"required"`
+}
+
 func HandleGetMatch() echo.HandlerFunc {
 	type PathParam struct {
 		MatchId string `param:"match_id"`
