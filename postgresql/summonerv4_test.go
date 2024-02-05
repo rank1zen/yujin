@@ -19,7 +19,7 @@ func TestInsertSummonerRecord(t *testing.T) {
 	pool, err := postgresql.BackoffRetryPool(ctx, addr)
 	require.NoError(t, err)
 
-	db := postgresql.NewQueries(pool)
+	db := postgresql.NewQuery(pool)
 
 	err = postgresql.Migrate(ctx, pool)
 	require.NoError(t, err)
@@ -39,17 +39,41 @@ func TestInsertSummonerRecord(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		id, err := db.InsertSummonerRecord(ctx, &test.arg, test.ts)
+		id, err := db.SummonerV4.InsertSummonerRecord(ctx, &test.arg, test.ts)
 		assert.NoError(t, err)
 
-		record, err := db.SelectSummonerRecord(ctx, id)
+		record, err := db.SummonerV4.SelectSummonerRecord(ctx, id)
 		if assert.NoError(t, err) {
-			assert.Equal(t, record.RecordId, id)
-			assert.Equal(t, record.RecordDate, test.ts)
+			assert.Equal(t, id, record.RecordId)
+			assert.Equal(t, test.ts, record.RecordDate)
 		}
 	}
+}
 
-	records, err := db.SelectSummonerRecordsByName(ctx, "")
+func TestGetSummonerRecord(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	addr := postgresql.NewDockerResource(t)
+
+	pool, err := postgresql.BackoffRetryPool(ctx, addr)
+	require.NoError(t, err)
+
+	db := postgresql.NewQuery(pool)
+
+	err = postgresql.Migrate(ctx, pool)
+	require.NoError(t, err)
+
+	ts := time.Date(2000, 0, 0, 0, 0, 0, 0, time.UTC)
+	for i:= 1 ; i <= 100; i++ {
+		db.SummonerV4.InsertSummonerRecord(ctx, &postgresql.SummonerRecordArg{Name: "Pobelter"}, ts)
+	}
+
+	records, err := db.SummonerV4.SelectSummonerRecordsByName(ctx, "Pobelter")
 	assert.NoError(t, err)
-	t.Log(records)
+
+	newest, err := db.SummonerV4.SelectSummonerRecordNewestByName(ctx, "Pobelter")
+	assert.NoError(t, err)
+
+	t.Log(records, newest)
 }

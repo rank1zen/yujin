@@ -32,7 +32,7 @@ func main() {
 
 	e.GET("/", HandleHome())
 	v1 := e.Group("/v1", CheckHealth(pool))
-	q := postgresql.NewQueries(pool)
+	q := postgresql.NewQuery(pool)
 
 	summonerv4 := v1.Group("/summoner/v4")
 	{

@@ -32,7 +32,7 @@ func TestPostSummonerRecord(t *testing.T) {
 
 	e := echo.New()
 	var gc *golio.Client
-	var q *postgresql.Queries
+	var q *postgresql.Query
 	handler := main.PostSummonerByName(q, gc)
 
 	for _, tc := range tests {

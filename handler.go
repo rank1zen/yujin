@@ -24,7 +24,7 @@ func HandleHome() echo.HandlerFunc {
 	}
 }
 
-func HandleGetSummonerProfile(q *postgresql.Queries) echo.HandlerFunc {
+func HandleGetSummonerProfile(q *postgresql.Query) echo.HandlerFunc {
 	type PathParam struct {
 		Name string `param:"name"`
 	}

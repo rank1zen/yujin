@@ -15,15 +15,15 @@ CREATE TABLE summoner_records (
 
 	account_id VARCHAR(150) NOT NULL,
 	profile_icon_id INT NOT NULL,
-	revision_date BIGINT NOT NULL CHECK(),
+	revision_date BIGINT NOT NULL,
 	name VARCHAR(150) NOT NULL,
 	id VARCHAR(150) NOT NULL,
-	puuid VARCHAR(150) NOT NULL CHECK(LENGTH(TRIM(puuid))),
-	summoner_level BIGINT NOT NULL CHECK(summoner_level > 0)
+	puuid VARCHAR(150) NOT NULL,
+	summoner_level BIGINT NOT NULL
 );
 
 CREATE INDEX ix_summoner_profile_name ON summoner_profile (name);
-CREATE INDEX ix_summoner_records_puuid_ts ON summoner_records (puuid, id, record_date DESC);
+CREATE INDEX ix_summoner_records_puuid_ts ON summoner_records (name, puuid, record_date DESC);
 
 CREATE TABLE soloq_records (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,

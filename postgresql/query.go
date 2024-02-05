@@ -2,17 +2,22 @@ package postgresql
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Queries struct {
-	db *pgxpool.Pool
+type Query struct {
+	LeagueV4   *LeagueV4Query
+	SummonerV4 *SummonerV4Query
+	db         *pgxpool.Pool
 }
 
-func NewQueries(pool *pgxpool.Pool) *Queries {
-	return &Queries{db: pool}
+func NewQuery(pool *pgxpool.Pool) *Query {
+	return &Query{
+		LeagueV4: &LeagueV4Query{db: pool},
+		SummonerV4: &SummonerV4Query{db: pool},
+		db: pool,
+	}
 }
 
 type SummonerProfileArg struct {
@@ -22,7 +27,7 @@ type SummonerProfileArg struct {
 	SummonerId string
 }
 
-func (q *Queries) UpsertSummonerProfile(ctx context.Context, r *SummonerProfileArg) (error) {
+func (q *Query) UpsertSummonerProfile(ctx context.Context, r *SummonerProfileArg) error {
 	query := `
 	INSERT INTO summoner_profile (name, puuid, account_id, summoner_id)
 	VALUES ($1, $2, $3, $4)
@@ -31,9 +36,5 @@ func (q *Queries) UpsertSummonerProfile(ctx context.Context, r *SummonerProfileA
 	`
 
 	_, err := q.db.Exec(ctx, query, r.Name, r.Puuid, r.AccountId, r.SummonerId)
-	if err != nil {
-		return fmt.Errorf("query error: %w", err)
-	}
-
-	return nil
+	return err
 }

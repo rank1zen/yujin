@@ -6,7 +6,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type SummonerV4Query struct {
+	db *pgxpool.Pool
+}
 
 type SummonerRecord struct {
 	RecordId      string    `db:"record_id"`
@@ -27,7 +32,7 @@ type SummonerRecordArg struct {
 	RevisionDate  int
 }
 
-func (q *Queries) InsertSummonerRecord(ctx context.Context, r *SummonerRecordArg, date time.Time) (string, error) {
+func (q *SummonerV4Query) InsertSummonerRecord(ctx context.Context, r *SummonerRecordArg, ts time.Time) (string, error) {
 	query := `
 	INSERT INTO summoner_records
 	(record_date, account_id, profile_icon_id, revision_date, name, id, puuid, summoner_level)
@@ -37,7 +42,7 @@ func (q *Queries) InsertSummonerRecord(ctx context.Context, r *SummonerRecordArg
 
 	var uuid string
 	err := q.db.QueryRow(ctx, query,
-		date,
+		ts,
 		r.AccountId,
 		r.ProfileIconId,
 		r.RevisionDate,
@@ -53,7 +58,7 @@ func (q *Queries) InsertSummonerRecord(ctx context.Context, r *SummonerRecordArg
 	return uuid, nil
 }
 
-func (q *Queries) DeleteSummonerRecord(ctx context.Context, id string) (string, error) {
+func (q *SummonerV4Query) DeleteSummonerRecord(ctx context.Context, id string) (string, error) {
 	query := `DELETE FROM summoner_records WHERE record_id = $1 RETURNING record_id`
 
 	var uuid string
@@ -65,29 +70,25 @@ func (q *Queries) DeleteSummonerRecord(ctx context.Context, id string) (string, 
 	return uuid, nil
 }
 
-func (q *Queries) SelectSummonerRecord(ctx context.Context, id string) (*SummonerRecord, error) {
+func (q *SummonerV4Query) SelectSummonerRecord(ctx context.Context, id string) (*SummonerRecord, error) {
 	query := `
 	SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
 	FROM summoner_records
 	WHERE record_id = $1
 	`
 
-	rows, err := q.db.Query(ctx, query, id)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
-	}
-
+	rows, _ := q.db.Query(ctx, query, id)
 	defer rows.Close()
 
 	record, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByNameLax[SummonerRecord])
 	if err != nil {
-		return nil, fmt.Errorf("row error: %w", err)
+		return nil, fmt.Errorf("query error: %w", err)
 	}
 
 	return &record, nil
 }
 
-func (q *Queries) CountSummonerRecordsByPuuid(ctx context.Context, puuid string) (int64, error) {
+func (q *SummonerV4Query) CountSummonerRecordsByPuuid(ctx context.Context, puuid string) (int64, error) {
 	query := `SELECT count(*) FROM summoner_records WHERE puuid = $1`
 
 	var count int64
@@ -99,25 +100,26 @@ func (q *Queries) CountSummonerRecordsByPuuid(ctx context.Context, puuid string)
 	return count, nil
 }
 
-func (q *Queries) SelectSummonerRecordNewestByPuuid(ctx context.Context, puuid string) (*SummonerRecord, error) {
-	query := `SELECT * FROM summoner_records WHERE puuid = $1 ORDER BY record_date DESC LIMIT 1`
+func (q *SummonerV4Query) SelectSummonerRecordNewestByPuuid(ctx context.Context, puuid string) (*SummonerRecord, error) {
+	query := `
+	SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
+	FROM summoner_records
+	WHERE puuid = $1
+	ORDER BY record_date DESC
+	LIMIT 1`
 
-	rows, err := q.db.Query(ctx, query, puuid)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
-	}
-
+	rows, _ := q.db.Query(ctx, query, puuid)
 	defer rows.Close()
 
-	record, err := pgx.CollectOneRow(rows, pgx.RowToStructByNameLax[SummonerRecord])
+	record, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[SummonerRecord])
 	if err != nil {
-		return nil, fmt.Errorf("row error: %w", err)
+		return nil, fmt.Errorf("query error: %w", err)
 	}
 
 	return &record, nil
 }
 
-func (q *Queries) SelectSummonerRecordsByPuuid(ctx context.Context, puuid string) (*[]SummonerRecord, error) {
+func (q *SummonerV4Query) SelectSummonerRecordsByPuuid(ctx context.Context, puuid string) (*[]SummonerRecord, error) {
 	query := `
 	SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
 	FROM summoner_records
@@ -126,40 +128,65 @@ func (q *Queries) SelectSummonerRecordsByPuuid(ctx context.Context, puuid string
 	LIMIT $2 OFFSET $3
 	`
 
-	rows, err := q.db.Query(ctx, query, puuid, 10, 0)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
-	}
-
+	rows, _ := q.db.Query(ctx, query, puuid, 10, 0)
 	defer rows.Close()
 
-	records, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[SummonerRecord])
+	records, err := pgx.CollectRows(rows, pgx.RowToStructByName[SummonerRecord])
 	if err != nil {
-		return nil, fmt.Errorf("row error: %w", err)
+		return nil, fmt.Errorf("query error: %w", err)
 	}
 
 	return &records, nil
 }
 
-func (q *Queries) SelectSummonerRecordsByName(ctx context.Context, name string) (*[]SummonerRecord, error) {
+func (q *SummonerV4Query) SelectSummonerRecordsByName(ctx context.Context, name string) (*[]SummonerRecord, error) {
 	query := `
 	SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
 	FROM summoner_records
-	WHERE puuid = (SELECT puuid FROM summoner_profile WHERE name = $1)
+	WHERE name = $1
+	ORDER BY record_date DESC
 	LIMIT $2 OFFSET $3
 	`
 
-	rows, err := q.db.Query(ctx, query, name, 10, 0)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
-	}
-
+	rows, _ := q.db.Query(ctx, query, name, 10, 0)
 	defer rows.Close()
 
 	records, err := pgx.CollectRows(rows, pgx.RowToStructByName[SummonerRecord])
 	if err != nil {
-		return nil, fmt.Errorf("collect row error: %w", err)
+		return nil, fmt.Errorf("query error: %w", err)
 	}
 
 	return &records, nil
+}
+
+func (q *SummonerV4Query) SelectSummonerRecordNewestByName(ctx context.Context, name string) (*SummonerRecord, error) {
+	query := `
+	SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
+	FROM summoner_records
+	WHERE name = $1
+	ORDER BY record_date DESC
+	LIMIT 1
+	`
+
+	rows, _ := q.db.Query(ctx, query, name)
+	defer rows.Close()
+
+	record, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[SummonerRecord])
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	return &record, nil
+}
+
+func (q *SummonerV4Query) CountSummonerRecordsByName(ctx context.Context, name string) (int64, error) {
+	query := `SELECT count(*) FROM summoner_records WHERE name = $1`
+
+	var count int64
+	err := q.db.QueryRow(ctx, query, name).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("query error: %w", err)
+	}
+
+	return count, nil
 }

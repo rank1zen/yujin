@@ -11,9 +11,9 @@ import (
 	"github.com/rank1zen/yujin/postgresql"
 )
 
-func GetSummoner(q *postgresql.Queries) echo.HandlerFunc {
+func GetSummoner(q *postgresql.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		record, err := q.SelectSummonerRecord(context.Background(), c.Param("uuid"))
+		record, err := q.SummonerV4.SelectSummonerRecord(context.Background(), c.Param("uuid"))
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -22,9 +22,9 @@ func GetSummoner(q *postgresql.Queries) echo.HandlerFunc {
 	}
 }
 
-func GetSummonerByPuuidRecent(q *postgresql.Queries) echo.HandlerFunc {
+func GetSummonerByPuuidRecent(q *postgresql.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		record, err := q.SelectSummonerRecordNewestByPuuid(context.Background(), c.Param("puuid"))
+		record, err := q.SummonerV4.SelectSummonerRecordNewestByPuuid(context.Background(), c.Param("puuid"))
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -33,9 +33,9 @@ func GetSummonerByPuuidRecent(q *postgresql.Queries) echo.HandlerFunc {
 	}
 }
 
-func GetSummonerByPuuid(q *postgresql.Queries) echo.HandlerFunc {
+func GetSummonerByPuuid(q *postgresql.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		records, err := q.SelectSummonerRecordsByPuuid(context.Background(), c.Param("puuid"))
+		records, err := q.SummonerV4.SelectSummonerRecordsByPuuid(context.Background(), c.Param("puuid"))
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -44,12 +44,12 @@ func GetSummonerByPuuid(q *postgresql.Queries) echo.HandlerFunc {
 	}
 }
 
-func GetSummonerByPuuidCount(q *postgresql.Queries) echo.HandlerFunc {
+func GetSummonerByPuuidCount(q *postgresql.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 
-		count, err := q.CountSummonerRecordsByPuuid(ctx, c.Param("puuid"))
+		count, err := q.SummonerV4.CountSummonerRecordsByPuuid(ctx, c.Param("puuid"))
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -58,7 +58,7 @@ func GetSummonerByPuuidCount(q *postgresql.Queries) echo.HandlerFunc {
 	}
 }
 
-func PostSummonerByName(q *postgresql.Queries, gc *golio.Client) echo.HandlerFunc {
+func PostSummonerByName(q *postgresql.Query, gc *golio.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ts := time.Now()
 
@@ -78,7 +78,7 @@ func PostSummonerByName(q *postgresql.Queries, gc *golio.Client) echo.HandlerFun
 			RevisionDate:  summoner.RevisionDate,
 		}
 
-		id, err := q.InsertSummonerRecord(context.Background(), &record, ts)
+		id, err := q.SummonerV4.InsertSummonerRecord(context.Background(), &record, ts)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -87,7 +87,7 @@ func PostSummonerByName(q *postgresql.Queries, gc *golio.Client) echo.HandlerFun
 	}
 }
 
-func DeleteSummoner(q *postgresql.Queries) echo.HandlerFunc {
+func DeleteSummoner(q *postgresql.Query) echo.HandlerFunc {
 	type QueryParam struct {
 		Id string `query:"id"`
 	}
@@ -102,21 +102,21 @@ func DeleteSummoner(q *postgresql.Queries) echo.HandlerFunc {
 	}
 }
 
-func GetSummonerByNameRecent(q *postgresql.Queries) echo.HandlerFunc {
+func GetSummonerByNameRecent(q *postgresql.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		return c.String(http.StatusNotImplemented, "Not Implemented")
 	}
 }
 
-func GetSummonerByNameCount(q *postgresql.Queries) echo.HandlerFunc {
+func GetSummonerByNameCount(q *postgresql.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		return c.String(http.StatusNotImplemented, "Not Implemented")
 	}
 }
 
-func GetSummonerByName(q *postgresql.Queries) echo.HandlerFunc {
+func GetSummonerByName(q *postgresql.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		records, err := q.SelectSummonerRecordsByName(context.Background(), c.Param("name"))
+		records, err := q.SummonerV4.SelectSummonerRecordsByName(context.Background(), c.Param("name"))
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
