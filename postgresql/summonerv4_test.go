@@ -48,4 +48,8 @@ func TestInsertSummonerRecord(t *testing.T) {
 			assert.Equal(t, record.RecordDate, test.ts)
 		}
 	}
+
+	records, err := db.SelectSummonerRecordsByName(ctx, "")
+	assert.NoError(t, err)
+	t.Log(records)
 }

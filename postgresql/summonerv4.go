@@ -8,25 +8,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type SummonerRecordRow struct {
-	RecordId      string    `db:"record_id"`
-	RecordDate    time.Time `db:"record_date"`
-	Puuid         string    `db:"puuid"`
-	AccountId     string    `db:"account_id"`
-	SummonerId    string    `db:"id"`
-	Name          string    `db:"name"`
-	ProfileIconId int       `db:"profile_icon_id"`
-	SummonerLevel int       `db:"summoner_level"`
-	RevisionDate  int       `db:"revision_date"`
-}
-
 type SummonerRecord struct {
 	RecordId      string    `db:"record_id"`
 	RecordDate    time.Time `db:"record_date"`
 	Name          string    `db:"name"`
-	ProfileIconId int       `db:"profile_icon_id"`
-	SummonerLevel int       `db:"summoner_level"`
-	RevisionDate  int       `db:"revision_date"`
+	ProfileIconId int32     `db:"profile_icon_id"`
+	SummonerLevel int32     `db:"summoner_level"`
+	RevisionDate  int64     `db:"revision_date"`
 }
 
 type SummonerRecordArg struct {
@@ -40,7 +28,7 @@ type SummonerRecordArg struct {
 }
 
 func (q *Queries) InsertSummonerRecord(ctx context.Context, r *SummonerRecordArg, date time.Time) (string, error) {
-	const query = `
+	query := `
 	INSERT INTO summoner_records
 	(record_date, account_id, profile_icon_id, revision_date, name, id, puuid, summoner_level)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -66,11 +54,7 @@ func (q *Queries) InsertSummonerRecord(ctx context.Context, r *SummonerRecordArg
 }
 
 func (q *Queries) DeleteSummonerRecord(ctx context.Context, id string) (string, error) {
-	query := `
-	DELETE FROM summoner_records
-	WHERE record_id = $1
-	RETURNING record_id
-	`
+	query := `DELETE FROM summoner_records WHERE record_id = $1 RETURNING record_id`
 
 	var uuid string
 	err := q.db.QueryRow(ctx, query, id).Scan(&uuid)
@@ -95,7 +79,7 @@ func (q *Queries) SelectSummonerRecord(ctx context.Context, id string) (*Summone
 
 	defer rows.Close()
 
-	record, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[SummonerRecord])
+	record, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByNameLax[SummonerRecord])
 	if err != nil {
 		return nil, fmt.Errorf("row error: %w", err)
 	}
@@ -104,43 +88,19 @@ func (q *Queries) SelectSummonerRecord(ctx context.Context, id string) (*Summone
 }
 
 func (q *Queries) CountSummonerRecordsByPuuid(ctx context.Context, puuid string) (int64, error) {
-	query := `
-	SELECT count(*)
-	FROM summoner_records
-	WHERE puuid = $1
-	`
+	query := `SELECT count(*) FROM summoner_records WHERE puuid = $1`
 
 	var count int64
 	err := q.db.QueryRow(ctx, query, puuid).Scan(&count)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("query error: %w", err)
 	}
 
 	return count, nil
 }
 
-func (q *Queries) SelectSummonerRecordJoin(ctx context.Context, name string) {
-	_ = `
-	SELECT * FROM summoner_profile s
-	INNER JOIN LATERAL (
-	SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
-	FROM summoner_records
-	WHERE name = s.name
-	ORDER BY record_date DESC
-	LIMIT 1
-	) l ON TRUE
-	ORDER BY s.name DESC;
-	`
-}
-
-func (q *Queries) SelectSummonerRecentByPuuid(ctx context.Context, puuid string) (*SummonerRecord, error) {
-	query := `
-	SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
-	FROM summoner_records
-	WHERE puuid = $1
-	ORDER BY record_date DESC
-	LIMIT 1
-	`
+func (q *Queries) SelectSummonerRecordNewestByPuuid(ctx context.Context, puuid string) (*SummonerRecord, error) {
+	query := `SELECT * FROM summoner_records WHERE puuid = $1 ORDER BY record_date DESC LIMIT 1`
 
 	rows, err := q.db.Query(ctx, query, puuid)
 	if err != nil {
@@ -149,7 +109,7 @@ func (q *Queries) SelectSummonerRecentByPuuid(ctx context.Context, puuid string)
 
 	defer rows.Close()
 
-	record, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[SummonerRecord])
+	record, err := pgx.CollectOneRow(rows, pgx.RowToStructByNameLax[SummonerRecord])
 	if err != nil {
 		return nil, fmt.Errorf("row error: %w", err)
 	}
@@ -173,7 +133,7 @@ func (q *Queries) SelectSummonerRecordsByPuuid(ctx context.Context, puuid string
 
 	defer rows.Close()
 
-	records, err := pgx.CollectRows(rows, pgx.RowToStructByName[SummonerRecord])
+	records, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[SummonerRecord])
 	if err != nil {
 		return nil, fmt.Errorf("row error: %w", err)
 	}
@@ -185,8 +145,7 @@ func (q *Queries) SelectSummonerRecordsByName(ctx context.Context, name string) 
 	query := `
 	SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
 	FROM summoner_records
-	WHERE name = $1
-	ORDER BY record_date DESC
+	WHERE puuid = (SELECT puuid FROM summoner_profile WHERE name = $1)
 	LIMIT $2 OFFSET $3
 	`
 
@@ -199,7 +158,7 @@ func (q *Queries) SelectSummonerRecordsByName(ctx context.Context, name string) 
 
 	records, err := pgx.CollectRows(rows, pgx.RowToStructByName[SummonerRecord])
 	if err != nil {
-		return nil, fmt.Errorf("row error: %w", err)
+		return nil, fmt.Errorf("collect row error: %w", err)
 	}
 
 	return &records, nil

@@ -7,7 +7,6 @@ import (
 
 	"github.com/rank1zen/yujin/postgresql"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
 func TestPoolConnect(t *testing.T) {
@@ -16,9 +15,8 @@ func TestPoolConnect(t *testing.T) {
 
 	addr := postgresql.NewDockerResource(t)
 
-	log := zap.Must(zap.NewProduction())
 
-	pool, err := postgresql.BackoffRetryPool(ctx, addr, log)
+	pool, err := postgresql.BackoffRetryPool(ctx, addr)
 	assert.NoError(t, err)
 
 	err = postgresql.CheckPool(ctx, pool)

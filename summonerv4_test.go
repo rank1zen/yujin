@@ -1,13 +1,12 @@
 package main_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/KnutZuidema/golio"
 	"github.com/labstack/echo/v4"
 	"github.com/rank1zen/yujin"
 	"github.com/rank1zen/yujin/postgresql"
@@ -32,8 +31,9 @@ func TestPostSummonerRecord(t *testing.T) {
 
 
 	e := echo.New()
-	e.Validator = main.NewValidator()
-	handler := main.PostSummoner(q)
+	var gc *golio.Client
+	var q *postgresql.Queries
+	handler := main.PostSummonerByName(q, gc)
 
 	for _, tc := range tests {
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.payload))
@@ -44,20 +44,5 @@ func TestPostSummonerRecord(t *testing.T) {
 		if assert.NoError(t, handler(c)) {
 			assert.Equal(t, tc.httpStatusCode, rec.Code)
 		}
-	}
-}
-
-func handlePostSummonerRecord() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		var body main.SummonerRecordBody
-		if err := c.Bind(&body); err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-		}
-
-		if err := c.Validate(body); err != nil {
-			return err
-		}
-
-		return c.JSON(http.StatusCreated, id)
 	}
 }

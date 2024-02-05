@@ -3,69 +3,51 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
 
+	"github.com/KnutZuidema/golio"
+	"github.com/KnutZuidema/golio/api"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rank1zen/yujin/postgresql"
-	"go.uber.org/zap"
 )
 
 func main() {
-	log := zap.Must(zap.NewProduction())
-	defer log.Sync()
-
 	e := echo.New()
 
-	logcfg := middleware.RequestLoggerConfig{
-		LogHost:     true,
-		LogURI:      true,
-		LogStatus:   true,
-		LogError:    true,
-		HandleError: true,
-		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			fields := []zap.Field{
-				zap.String("host", v.Host),
-				zap.String("uri", v.URI),
-				zap.Int("status", v.Status),
-				zap.Error(v.Error),
-			}
-
-			switch {
-			case v.Status >= 500:
-				log.Error("server error", fields...)
-			case v.Status >= 400:
-				log.Warn("client error", fields...)
-			case v.Status >= 300:
-				log.Info("redirection", fields...)
-			default:
-				log.Info("success", fields...)
-			}
-
-			return nil
-		},
-	}
-
-	e.Use(middleware.RequestLoggerWithConfig(logcfg))
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
-	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
-		ErrorMessage: "request exceeded timeout",
-		Timeout:      10 * time.Second,
-	}))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	pool, err := postgresql.BackoffRetryPool(ctx, os.Getenv("YUJIN_PG_STRING"))
+	pool, err := pgxpool.New(context.Background(), os.Getenv("YUJIN_PG_STRING"))
 	if err != nil {
-		log.Warn("can't connect to database")
+		log.Fatal("can't connect to database")
 	}
+
+	gc := golio.NewClient(os.Getenv("YUJIN_RIOT_API_KEY"), golio.WithRegion(api.RegionNorthAmerica))
 
 	e.GET("/", HandleHome())
-	RegisterRoutes(e, pool)
+	v1 := e.Group("/v1", CheckHealth(pool))
+	q := postgresql.NewQueries(pool)
+
+	summonerv4 := v1.Group("/summoner/v4")
+	{
+		summonerv4.GET("/record/:uuid", GetSummoner(q))
+		summonerv4.DELETE("/record/:uuid", DeleteSummoner(q))
+
+		summonerv4.GET("/by-puuid/:puuid", GetSummonerByPuuid(q))
+		summonerv4.GET("/by-puuid/:puuid/recent", GetSummonerByPuuidRecent(q))
+		summonerv4.GET("/by-puuid/:puuid/count", GetSummonerByPuuidCount(q))
+
+		summonerv4.GET("/by-name/:name", GetSummonerByName(q))
+		summonerv4.GET("/by-name/:name/recent", GetSummonerByNameRecent(q))
+		summonerv4.GET("/by-name/:name/count", GetSummonerByNameCount(q))
+		summonerv4.POST("/by-name/:name/renew", PostSummonerByName(q, gc))
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()

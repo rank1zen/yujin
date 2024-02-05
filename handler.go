@@ -8,13 +8,14 @@ import (
 )
 
 type SummonerProfileQuery struct {
+	Name string
 }
 
 type SummonerProfileBody struct {
-	Name       string `json:"name"`
-	Puuid      string `json:"puuid"`
-	AccountId  string `json:"account_id"`
-	SummonerId string `json:"summoner_id"`
+	Name       string `json:"name" validate:"required"`
+	Puuid      string `json:"puuid" validate:"required"`
+	AccountId  string `json:"account_id" validate:"required"`
+	SummonerId string `json:"summoner_id" validate:"required"`
 }
 
 func HandleHome() echo.HandlerFunc {
@@ -38,13 +39,14 @@ func HandleGetSummonerProfile(q *postgresql.Queries) echo.HandlerFunc {
 	}
 }
 
-func HandlePostSummonerProfile(q *postgresql.Queries) echo.HandlerFunc {
+func HandlePostSummonerProfile() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var body SummonerProfileBody
-		if err := c.Bind(&body); err != nil {
+		err := c.Bind(&body)
+		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 
-		return c.JSON(http.StatusOK, "Not Implemented")
+		return c.JSON(http.StatusOK, body)
 	}
 }
