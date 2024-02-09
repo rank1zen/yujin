@@ -2,11 +2,11 @@ package postgresql
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
 )
@@ -22,7 +22,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("could not create migrator: %w", err)
 	}
 
-	err = migrator.LoadMigrations(os.DirFS("../db/migrations"))
+	err = migrator.LoadMigrations(os.DirFS("../../migrations"))
 	if err != nil {
 		return fmt.Errorf("could not load migrations: %w", err)
 	}
@@ -35,7 +35,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-func BackoffRetryPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
+func NewBackoffPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	var pool *pgxpool.Pool
 
 	op := func() error {
@@ -56,9 +56,20 @@ func BackoffRetryPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func CheckPool(ctx context.Context, pool *pgxpool.Pool) error {
-	if pool == nil {
-		return errors.New("no database connection")
+func NewConnectionPool(ctx context.Context, cfg *Config) (*pgxpool.Pool, error) {
+	conf, err := pgxpool.ParseConfig(cfg.ConnectionURL())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse connection string: %w", err)
 	}
-	return pool.Ping(ctx)
+
+	conf.BeforeAcquire = func(ctx context.Context, conn *pgx.Conn) bool {
+		return conn.Ping(ctx) == nil
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, conf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create connection pool: %w", err)
+	}
+
+	return pool, nil
 }

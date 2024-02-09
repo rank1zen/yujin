@@ -1,4 +1,4 @@
-package main_test
+package internal_test
 
 import (
 	"net/http"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-	"github.com/rank1zen/yujin"
+	"github.com/rank1zen/yujin/internal"
 )
 
 func TestPostMatch(t *testing.T) {
@@ -21,7 +21,7 @@ func TestPostMatch(t *testing.T) {
 	}
 
 	e := echo.New()
-	h := main.HandlePostMatch()
+	h := internal.HandlePostMatch()
 
 	for _, tc := range tests {
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.payload))

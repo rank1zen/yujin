@@ -1,4 +1,4 @@
-package main_test
+package internal_test
 
 import (
 	"net/http"
@@ -8,8 +8,8 @@ import (
 
 	"github.com/KnutZuidema/golio"
 	"github.com/labstack/echo/v4"
-	"github.com/rank1zen/yujin"
-	"github.com/rank1zen/yujin/postgresql"
+	"github.com/rank1zen/yujin/internal"
+	"github.com/rank1zen/yujin/internal/postgresql"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,7 +33,7 @@ func TestPostSummonerRecord(t *testing.T) {
 	e := echo.New()
 	var gc *golio.Client
 	var q *postgresql.Query
-	handler := main.PostSummonerByName(q, gc)
+	handler := internal.PostSummonerByName(q, gc)
 
 	for _, tc := range tests {
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.payload))

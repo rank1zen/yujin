@@ -8,6 +8,8 @@ import (
 )
 
 func NewDockerResource(t testing.TB) string {
+	t.Helper()
+
 	pool, err := dockertest.NewPool("")
 	if err != nil {
 		t.Fatalf("could not construct dockertest pool: %v", err)

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rank1zen/yujin/postgresql"
+	"github.com/rank1zen/yujin/internal/postgresql"
 	"github.com/stretchr/testify/assert"
 )
 

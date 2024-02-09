@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/KnutZuidema/golio"
 	"github.com/labstack/echo/v4"
-	"github.com/rank1zen/yujin/postgresql"
+	"github.com/rank1zen/yujin/internal/postgresql"
 )
 
 func GetSummoner(q *postgresql.Query) echo.HandlerFunc {
