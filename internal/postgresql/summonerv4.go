@@ -48,7 +48,7 @@ func (q *SummonerV4Query) InsertSummonerRecord(ctx context.Context, r *SummonerR
 
 	var uuid string
 	err := q.db.QueryRow(ctx, query,
-		ts, r.AccountId, r.ProfileIconId, r.RevisionDate, r.Name, r.SummonerId, r.Puuid, r.SummonerLevel,).Scan(&uuid)
+		ts, r.AccountId, r.ProfileIconId, r.RevisionDate, r.Name, r.SummonerId, r.Puuid, r.SummonerLevel).Scan(&uuid)
 	if err != nil {
 		return "", fmt.Errorf("query error: %w", err)
 	}

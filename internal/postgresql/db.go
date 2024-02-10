@@ -4,36 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"testing"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
 )
-
-func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		return err
-	}
-
-	migrator, err := migrate.NewMigrator(ctx, conn.Conn(), "public.schema_version")
-	if err != nil {
-		return fmt.Errorf("could not create migrator: %w", err)
-	}
-
-	err = migrator.LoadMigrations(os.DirFS("../../migrations"))
-	if err != nil {
-		return fmt.Errorf("could not load migrations: %w", err)
-	}
-
-	err = migrator.Migrate(ctx)
-	if err != nil {
-		return fmt.Errorf("could not migrate: %w", err)
-	}
-
-	return nil
-}
 
 func NewBackoffPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	var pool *pgxpool.Pool
@@ -72,4 +49,28 @@ func NewConnectionPool(ctx context.Context, cfg *Config) (*pgxpool.Pool, error) 
 	}
 
 	return pool, nil
+}
+
+func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+
+	migrator, err := migrate.NewMigrator(ctx, conn.Conn(), "public.schema_version")
+	if err != nil {
+		return fmt.Errorf("could not create migrator: %w", err)
+	}
+
+	err = migrator.LoadMigrations(os.DirFS("../../migrations"))
+	if err != nil {
+		return fmt.Errorf("could not load migrations: %w", err)
+	}
+
+	err = migrator.Migrate(ctx)
+	if err != nil {
+		return fmt.Errorf("could not migrate: %w", err)
+	}
+
+	return nil
 }

@@ -1,40 +1,56 @@
-package postgresql
+package postgresql_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rank1zen/yujin/internal/postgresql"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestSelectMatch(t *testing.T) {
+func TestMatchTeamRecord(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	addr := NewDockerResource(t)
+	addr := postgresql.NewDockerResource(t)
 
-	pool, err := BackoffRetryPool(ctx, addr)
-	require.NoError(t, err)
+	pool := MustConnectionPool(t, addr)
+	MustMigrate(t, pool)
+	db := postgresql.NewMatchV5Query(pool)
 
-	err = Migrate(ctx, pool)
-	require.NoError(t, err)
-
-	db := newMatchV5Query(pool)
-
-	for _, test := range []struct {
-		arg  Match
+	tests := []struct {
+		arg  postgresql.MatchTeamRecordArg
 		want string
 	}{
 		{
-			arg: Match{Id: "JOEMAMA"},
-			want: "JOEMAMA",
+			arg:  postgresql.MatchTeamRecordArg{},
+			want: "",
 		},
-	} {
-		id, err := db.InsertMatch(ctx, &test.arg)
-		assert.NoError(t, err)
+	}
 
-		assert.Equal(t, test.want, id)
+	for _, tc := range tests {
+		id, err := db.InsertMatchTeam(ctx, &tc.arg)
+		if assert.NoError(t, err) {
+			assert.Equal(t, tc.want, id)
+			t.Log(id)
+		}
+	}
+}
+
+func MustConnectionPool(t testing.TB, url string) (*pgxpool.Pool) {
+	pool, err := postgresql.NewBackoffPool(context.Background(), url)
+	if err != nil {
+		t.Fatalf("can not make connection pool: %v", err)
+	}
+
+	return pool
+}
+
+func MustMigrate(t testing.TB, pool *pgxpool.Pool) {
+	err := postgresql.Migrate(context.Background(), pool)
+	if err != nil {
+		t.Fatalf("can not migrate: %v", err)
 	}
 }
