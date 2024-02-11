@@ -1,4 +1,4 @@
-package postgresql
+package postgres
 
 import (
 	"context"
@@ -18,16 +18,18 @@ func NewMatchV5Query(pool *pgxpool.Pool) *MatchV5Query {
 }
 
 func (q *MatchV5Query) InsertMatch(ctx context.Context, arg *MatchRecordArg) (string, error) {
-	_ = `
-	INSERT INTO match_v5
-	(match_id, runes)
-	VALUES ($1, 
-		ROW(ROW($2, $3, $4))
-	)
-	RETURNING match_id
-	`
+	var id string
+	err := q.db.QueryRow(ctx, `
+		INSERT INTO match_record
+		(record_date, match_id, start_ts, duration, surrender, patch)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING record_id
+	`, arg.RecordDate, arg.MatchId, arg.StartTs, arg.Duration, arg.Surrender, arg.Patch).Scan(&id)
+	if err != nil {
+		return "", err
+	}
 
-	return "", nil
+	return id, nil
 }
 
 func (q *MatchV5Query) InsertMatchTeam(ctx context.Context, arg *MatchTeamRecordArg) (string, error) {
@@ -35,13 +37,13 @@ func (q *MatchV5Query) InsertMatchTeam(ctx context.Context, arg *MatchTeamRecord
 	err := q.db.QueryRow(ctx, `
 		INSERT INTO match_team_record
 		(record_date, match_id, team_id, objectives, bans)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, $2, $3, $4::team_objective, $5::team_champion_ban)
 		RETURNING record_id
 	`, arg.RecordDate, arg.MatchId, arg.TeamId, arg.Objective, arg.Bans).Scan(&id)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return id, nil
 }
 

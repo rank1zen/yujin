@@ -1,4 +1,4 @@
-package postgresql
+package postgres
 
 import (
 	"context"
@@ -69,21 +69,19 @@ func (q *SummonerV4Query) DeleteSummonerRecord(ctx context.Context, id string) (
 }
 
 func (q *SummonerV4Query) SelectSummonerRecord(ctx context.Context, id string) (*SummonerRecord, error) {
-	query := `
-	SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
-	FROM summoner_records
-	WHERE record_id = $1
-	`
-
-	rows, _ := q.db.Query(ctx, query, id)
+	rows, _ := q.db.Query(ctx, `
+		SELECT record_id, record_date, name, profile_icon_id, summoner_level, revision_date
+		FROM summoner_records
+		WHERE record_id = $1
+	`, id)
 	defer rows.Close()
 
-	record, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByNameLax[SummonerRecord])
+	record, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[SummonerRecord])
 	if err != nil {
 		return nil, fmt.Errorf("query error: %w", err)
 	}
 
-	return &record, nil
+	return record, nil
 }
 
 func (q *SummonerV4Query) CountSummonerRecordsByPuuid(ctx context.Context, puuid string) (int64, error) {

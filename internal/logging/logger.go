@@ -23,5 +23,6 @@ func FromContext(ctx context.Context) *zap.SugaredLogger {
 	if ok {
 		return logger
 	}
-	return nil
+
+	return NewLogger()
 }

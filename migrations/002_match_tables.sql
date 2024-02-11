@@ -37,7 +37,7 @@ CREATE TYPE participant_perk AS (
 
 CREATE TABLE match_record (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-	record_date TIMESTAMP UNIQUE NOT NULL,
+	record_date TIMESTAMP NOT NULL,
 	match_id VARCHAR(128) UNIQUE NOT NULL,
 
 	start_ts TIMESTAMP NOT NULL,
@@ -48,17 +48,15 @@ CREATE TABLE match_record (
 
 CREATE TABLE match_team_record (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-	record_date TIMESTAMP NOT NULL REFERENCES match_record(record_date),
 	match_id VARCHAR(128) NOT NULL REFERENCES match_record(match_id),
 
 	team_id INT NOT NULL,
-	objectives team_objective[] NOT NULL,
-	bans team_champion_ban[] NOT NULL
+	objectives team_objective NOT NULL,
+	bans team_champion_ban NOT NULL
 );
 
 CREATE TABLE match_participant (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-	record_date TIMESTAMP NOT NULL REFERENCES match_record(record_date),
 	match_id VARCHAR(128) NOT NULL REFERENCES match_record(match_id),
 	puuid VARCHAR(128),
 	UNIQUE (match_id, puuid),

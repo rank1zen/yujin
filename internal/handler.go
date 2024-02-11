@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/postgres"
 )
 
 type SummonerProfileQuery struct {
@@ -24,7 +24,7 @@ func HandleHome() echo.HandlerFunc {
 	}
 }
 
-func HandleGetSummonerProfile(q *postgresql.Query) echo.HandlerFunc {
+func HandleGetSummonerProfile(q *postgres.Query) echo.HandlerFunc {
 	type PathParam struct {
 		Name string `param:"name"`
 	}

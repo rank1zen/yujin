@@ -1,39 +1,41 @@
-package postgresql_test
+package postgres_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestInsertSoloqRecord(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	addr := postgresql.NewDockerResource(t)
+	addr := postgres.NewDockerResource(t)
 
-	pool, err := postgresql.BackoffRetryPool(ctx, addr)
+	pool, err := postgres.BackoffRetryPool(ctx, addr)
 	require.NoError(t, err)
 
-	db := postgresql.NewQuery(pool)
+	db := postgres.NewQuery(pool)
 
-	err = postgresql.Migrate(ctx, pool)
+	err = postgres.Migrate(ctx, pool)
 	require.NoError(t, err)
 
 	tests := []struct {
-		arg postgresql.SoloqRecordArg
+		arg postgres.SoloqRecordArg
 		ts  time.Time
 	}{
 		{
-			arg: postgresql.SoloqRecordArg{},
+			arg: postgres.SoloqRecordArg{},
 			ts:  time.Date(2000, 0, 0, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			arg: postgresql.SoloqRecordArg{},
+			arg: postgres.SoloqRecordArg{},
 			ts:  time.Now(),
 		},
 	}

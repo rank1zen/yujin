@@ -12,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rank1zen/yujin/internal"
-	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/postgres"
 	"go.uber.org/zap"
 )
 
@@ -24,7 +24,7 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	pool, err := postgresql.NewConnectionPool(context.Background())
+	pool, err := postgres.NewConnectionPool(context.Background())
 
 	gc := golio.NewClient(os.Getenv("YUJIN_RIOT_API_KEY"), golio.WithRegion(api.RegionNorthAmerica))
 

@@ -1,6 +1,11 @@
-package postgresql
+package postgres
 
-import "time"
+import (
+	"context"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
 
 type MatchRecordArg struct {
 	RecordDate time.Time
@@ -30,8 +35,8 @@ type MatchTeamRecordArg struct {
 	RecordDate time.Time
 	MatchId    string
 	TeamId     int
-	Bans       []TeamBan
-	Objective  []TeamObjective
+	Bans       TeamBan
+	Objective  TeamObjective
 }
 
 type MatchTeamRecord struct {
@@ -135,6 +140,32 @@ type TeamObjective struct {
 	Name  string
 	First bool
 	Kills int
+}
+
+func RegisterTeamBanType(ctx context.Context, conn *pgx.Conn) error {
+	dt, err := conn.LoadType(ctx, "team_champion_ban")
+	if err != nil {
+		return err
+	}
+
+	conn.TypeMap().RegisterType(dt)
+
+	return nil
+}
+
+func RegisterTeamObjectiveType(ctx context.Context, conn *pgx.Conn) error {
+	dt, err := conn.LoadType(ctx, "team_objective")
+	if err != nil {
+		return err
+	}
+
+	conn.TypeMap().RegisterType(dt)
+
+	return nil
+}
+
+func (t TeamBan) IsNull() bool {
+	return false
 }
 
 type Perks struct {

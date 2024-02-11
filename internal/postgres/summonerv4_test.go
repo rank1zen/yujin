@@ -1,4 +1,4 @@
-package postgresql_test
+package postgres_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,29 +14,29 @@ import (
 func TestInsertSummonerRecord(t *testing.T) {
 	t.Parallel()
 
-	addr := postgresql.NewDockerResource(t)
+	addr := postgres.NewDockerResource(t)
 
-	pool, err := postgresql.NewBackoffPool(context.Background(), addr)
+	pool, err := postgres.NewBackoffPool(context.Background(), addr)
 	require.NoError(t, err)
 
-	db := postgresql.NewSummonerV4Query(pool)
+	db := postgres.NewSummonerV4Query(pool)
 
-	err = postgresql.Migrate(context.Background(), pool)
+	err = postgres.Migrate(context.Background(), pool)
 	require.NoError(t, err)
 
 	tests := []struct {
 		tc   int
-		arg  postgresql.SummonerRecordArg
+		arg  postgres.SummonerRecordArg
 		date time.Time
 	}{
 		{
 			tc:   1,
-			arg:  postgresql.SummonerRecordArg{},
+			arg:  postgres.SummonerRecordArg{},
 			date: time.Date(2000, 0, 0, 0, 0, 0, 0, time.UTC),
 		},
 		{
 			tc: 2,
-			arg: postgresql.SummonerRecordArg{Name: "testing"},
+			arg: postgres.SummonerRecordArg{Name: "testing"},
 			date: time.Now(),
 		},
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/KnutZuidema/golio"
 	"github.com/labstack/echo/v4"
 	"github.com/rank1zen/yujin/internal"
-	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/postgres"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,7 +32,7 @@ func TestPostSummonerRecord(t *testing.T) {
 
 	e := echo.New()
 	var gc *golio.Client
-	var q *postgresql.Query
+	var q *postgres.Query
 	handler := internal.PostSummonerByName(q, gc)
 
 	for _, tc := range tests {

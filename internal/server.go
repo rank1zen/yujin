@@ -4,13 +4,13 @@ import (
 	"github.com/KnutZuidema/golio"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
-	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/postgres"
 )
 
 func Routes(e *echo.Echo, pool *pgxpool.Pool, gc *golio.Client) {
 	e.GET("/", HandleHome())
 	v1 := e.Group("/v1")
-	q := postgresql.NewQuery(pool)
+	q := postgres.NewQuery(pool)
 
 	summonerv4 := v1.Group("/summoner/v4")
 	{

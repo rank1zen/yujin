@@ -8,10 +8,10 @@ import (
 
 	"github.com/KnutZuidema/golio"
 	"github.com/labstack/echo/v4"
-	"github.com/rank1zen/yujin/internal/postgresql"
+	"github.com/rank1zen/yujin/internal/postgres"
 )
 
-func GetSummoner(q *postgresql.Query) echo.HandlerFunc {
+func GetSummoner(q *postgres.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		record, err := q.SummonerV4.SelectSummonerRecord(context.Background(), c.Param("uuid"))
 		if err != nil {
@@ -22,7 +22,7 @@ func GetSummoner(q *postgresql.Query) echo.HandlerFunc {
 	}
 }
 
-func GetSummonerByPuuidRecent(q *postgresql.Query) echo.HandlerFunc {
+func GetSummonerByPuuidRecent(q *postgres.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		record, err := q.SummonerV4.SelectSummonerRecordNewestByPuuid(context.Background(), c.Param("puuid"))
 		if err != nil {
@@ -33,7 +33,7 @@ func GetSummonerByPuuidRecent(q *postgresql.Query) echo.HandlerFunc {
 	}
 }
 
-func GetSummonerByPuuid(q *postgresql.Query) echo.HandlerFunc {
+func GetSummonerByPuuid(q *postgres.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		records, err := q.SummonerV4.SelectSummonerRecordsByPuuid(context.Background(), c.Param("puuid"))
 		if err != nil {
@@ -44,7 +44,7 @@ func GetSummonerByPuuid(q *postgresql.Query) echo.HandlerFunc {
 	}
 }
 
-func GetSummonerByPuuidCount(q *postgresql.Query) echo.HandlerFunc {
+func GetSummonerByPuuidCount(q *postgres.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
@@ -58,7 +58,7 @@ func GetSummonerByPuuidCount(q *postgresql.Query) echo.HandlerFunc {
 	}
 }
 
-func PostSummonerByName(q *postgresql.Query, gc *golio.Client) echo.HandlerFunc {
+func PostSummonerByName(q *postgres.Query, gc *golio.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ts := time.Now()
 
@@ -68,7 +68,7 @@ func PostSummonerByName(q *postgresql.Query, gc *golio.Client) echo.HandlerFunc 
 			return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
 		}
 
-		record := postgresql.SummonerRecordArg{
+		record := postgres.SummonerRecordArg{
 			Puuid:         summoner.PUUID,
 			AccountId:     summoner.AccountID,
 			SummonerId:    summoner.ID,
@@ -87,7 +87,7 @@ func PostSummonerByName(q *postgresql.Query, gc *golio.Client) echo.HandlerFunc 
 	}
 }
 
-func DeleteSummoner(q *postgresql.Query) echo.HandlerFunc {
+func DeleteSummoner(q *postgres.Query) echo.HandlerFunc {
 	type QueryParam struct {
 		Id string `query:"id"`
 	}
@@ -102,19 +102,19 @@ func DeleteSummoner(q *postgresql.Query) echo.HandlerFunc {
 	}
 }
 
-func GetSummonerByNameRecent(q *postgresql.Query) echo.HandlerFunc {
+func GetSummonerByNameRecent(q *postgres.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		return c.String(http.StatusNotImplemented, "Not Implemented")
 	}
 }
 
-func GetSummonerByNameCount(q *postgresql.Query) echo.HandlerFunc {
+func GetSummonerByNameCount(q *postgres.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		return c.String(http.StatusNotImplemented, "Not Implemented")
 	}
 }
 
-func GetSummonerByName(q *postgresql.Query) echo.HandlerFunc {
+func GetSummonerByName(q *postgres.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		records, err := q.SummonerV4.SelectSummonerRecordsByName(context.Background(), c.Param("name"))
 		if err != nil {
