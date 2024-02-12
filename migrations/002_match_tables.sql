@@ -41,7 +41,7 @@ CREATE TABLE match_record (
 	match_id VARCHAR(128) UNIQUE NOT NULL,
 
 	start_ts TIMESTAMP NOT NULL,
-	duration BIGINT NOT NULL,
+	duration INTERVAL NOT NULL,
 	surrender BOOLEAN NOT NULL,
 	patch VARCHAR(128) NOT NULL
 );
@@ -51,8 +51,8 @@ CREATE TABLE match_team_record (
 	match_id VARCHAR(128) NOT NULL REFERENCES match_record(match_id),
 
 	team_id INT NOT NULL,
-	objectives team_objective NOT NULL,
-	bans team_champion_ban NOT NULL
+	objectives team_objective[] NOT NULL,
+	bans team_champion_ban[] NOT NULL
 );
 
 CREATE TABLE match_participant (

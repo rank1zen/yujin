@@ -14,14 +14,13 @@ import (
 func TestInsertSummonerRecord(t *testing.T) {
 	t.Parallel()
 
-	addr := postgres.NewDockerResource(t)
+	addr := NewDockerResource(t)
 
 	pool, err := postgres.NewBackoffPool(context.Background(), addr)
 	require.NoError(t, err)
 
 	db := postgres.NewSummonerV4Query(pool)
 
-	err = postgres.Migrate(context.Background(), pool)
 	require.NoError(t, err)
 
 	tests := []struct {

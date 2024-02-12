@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"testing"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -49,7 +48,17 @@ func NewConnectionPool(ctx context.Context, connstr string) (*pgxpool.Pool, erro
 	}
 
 	conf.BeforeAcquire = func(ctx context.Context, conn *pgx.Conn) bool {
-		err := RegisterCompositeTypes(ctx, conn)
+		err := Migrate(ctx, conn)
+		if err != nil {
+			return false
+		}
+
+		err = RegisterTeamBanType(ctx, conn)
+		if err != nil {
+			return false
+		}
+
+		err = RegisterTeamObjectiveType(ctx, conn)
 		if err != nil {
 			return false
 		}
@@ -65,15 +74,8 @@ func NewConnectionPool(ctx context.Context, connstr string) (*pgxpool.Pool, erro
 	return pool, nil
 }
 
-func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		return err
-	}
-
-	defer conn.Release()
-
-	migrator, err := migrate.NewMigrator(ctx, conn.Conn(), "public.schema_version")
+func Migrate(ctx context.Context, conn *pgx.Conn) error {
+	migrator, err := migrate.NewMigrator(ctx, conn, "public.schema_version")
 	if err != nil {
 		return fmt.Errorf("could not create migrator: %w", err)
 	}

@@ -16,14 +16,13 @@ func TestInsertSoloqRecord(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	addr := postgres.NewDockerResource(t)
+	addr := NewDockerResource(t)
 
-	pool, err := postgres.BackoffRetryPool(ctx, addr)
+	pool, err := postgres.NewBackoffPool(ctx, addr)
 	require.NoError(t, err)
 
 	db := postgres.NewQuery(pool)
 
-	err = postgres.Migrate(ctx, pool)
 	require.NoError(t, err)
 
 	tests := []struct {

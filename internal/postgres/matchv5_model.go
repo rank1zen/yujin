@@ -10,8 +10,8 @@ import (
 type MatchRecordArg struct {
 	RecordDate time.Time
 	MatchId    string
-	StartTs    int
-	Duration   int64
+	StartDate    time.Time
+	Duration   time.Duration
 	Surrender  bool
 	Patch      string
 	Puuids     []string
@@ -32,20 +32,18 @@ type MatchRecord struct {
 }
 
 type MatchTeamRecordArg struct {
-	RecordDate time.Time
-	MatchId    string
-	TeamId     int
-	Bans       TeamBan
-	Objective  TeamObjective
+	MatchId   string
+	TeamId    int
+	Bans      []*TeamBan
+	Objective []*TeamObjective
 }
 
 type MatchTeamRecord struct {
-	RecordId   string          `db:"record_id"`
-	RecordDate time.Time       `db:"record_date"`
-	MatchId    string          `db:"match_id"`
-	TeamId     int32           `db:"team_id"`
-	Bans       []TeamBan       `db:"bans"`
-	Objectives []TeamObjective `db:"objectives"`
+	RecordId   string           `db:"record_id"`
+	MatchId    string           `db:"match_id"`
+	TeamId     int32            `db:"team_id"`
+	Objectives []*TeamObjective `db:"objectives"`
+	Bans       []*TeamBan       `db:"bans"`
 }
 
 type MatchParticipantRecordArg struct {
@@ -143,24 +141,30 @@ type TeamObjective struct {
 }
 
 func RegisterTeamBanType(ctx context.Context, conn *pgx.Conn) error {
-	dt, err := conn.LoadType(ctx, "team_champion_ban")
-	if err != nil {
-		return err
+	for _, t := range []string{
+		"team_champion_ban",
+		"team_champion_ban[]",
+	} {
+		dt, err := conn.LoadType(ctx, t)
+		if err != nil {
+			return err
+		}
+		conn.TypeMap().RegisterType(dt)
 	}
-
-	conn.TypeMap().RegisterType(dt)
-
 	return nil
 }
 
 func RegisterTeamObjectiveType(ctx context.Context, conn *pgx.Conn) error {
-	dt, err := conn.LoadType(ctx, "team_objective")
-	if err != nil {
-		return err
+	for _, t := range []string{
+		"team_objective",
+		"team_objective[]",
+	} {
+		dt, err := conn.LoadType(ctx, t)
+		if err != nil {
+			return err
+		}
+		conn.TypeMap().RegisterType(dt)
 	}
-
-	conn.TypeMap().RegisterType(dt)
-
 	return nil
 }
 

@@ -19,7 +19,7 @@ type ConnTestRunner struct {
 }
 
 func NewConnTestRunner() *ConnTestRunner {
-
+	return &ConnTestRunner{}
 }
 
 func NewDockerResource(t testing.TB) string {
@@ -69,11 +69,4 @@ func MustConnectionPool(t testing.TB, url string) *pgxpool.Pool {
 	}
 
 	return pool
-}
-
-func MustMigrate(t testing.TB, pool *pgxpool.Pool) {
-	err := postgres.Migrate(context.Background(), pool)
-	if err != nil {
-		t.Fatalf("can not migrate: %v", err)
-	}
 }

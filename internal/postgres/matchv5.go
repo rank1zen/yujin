@@ -24,7 +24,7 @@ func (q *MatchV5Query) InsertMatch(ctx context.Context, arg *MatchRecordArg) (st
 		(record_date, match_id, start_ts, duration, surrender, patch)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING record_id
-	`, arg.RecordDate, arg.MatchId, arg.StartTs, arg.Duration, arg.Surrender, arg.Patch).Scan(&id)
+	`, arg.RecordDate, arg.MatchId, arg.StartDate, arg.Duration, arg.Surrender, arg.Patch).Scan(&id)
 	if err != nil {
 		return "", err
 	}
@@ -36,10 +36,10 @@ func (q *MatchV5Query) InsertMatchTeam(ctx context.Context, arg *MatchTeamRecord
 	var id string
 	err := q.db.QueryRow(ctx, `
 		INSERT INTO match_team_record
-		(record_date, match_id, team_id, objectives, bans)
-		VALUES ($1, $2, $3, $4::team_objective, $5::team_champion_ban)
+		(match_id, team_id, objectives, bans)
+		VALUES ($1, $2, $3::team_objective[], $4::team_champion_ban[])
 		RETURNING record_id
-	`, arg.RecordDate, arg.MatchId, arg.TeamId, arg.Objective, arg.Bans).Scan(&id)
+	`, arg.MatchId, arg.TeamId, arg.Objective, arg.Bans).Scan(&id)
 	if err != nil {
 		return "", err
 	}
@@ -95,23 +95,41 @@ func (q *MatchV5Query) InsertMatchPlayer(ctx context.Context, arg *MatchParticip
 	return uuid, nil
 }
 
-func (q *MatchV5Query) SelectMatch(ctx context.Context, id string) (MatchRecordArg, error) {
+func (q *MatchV5Query) SelectMatch(ctx context.Context, id string) (*MatchRecordArg, error) {
 	rows, _ := q.db.Query(ctx, `
 		SELECT * FROM match
-		WHERE match_id = $1
+		WHERE record_id = $1
 	`, id)
 	defer rows.Close()
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[MatchRecordArg])
+	record, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[MatchRecordArg])
+	if err != nil {
+		return nil, err
+	}
+
+	return record, nil
 }
 
-func (q *MatchV5Query) SelectMatchPlayer(ctx context.Context, id string) {
+func (q *MatchV5Query) SelectMatchByMatchId(ctx context.Context, matchId string) (*MatchRecordArg, error) {
+	rows, _ := q.db.Query(ctx, `
+		SELECT * FROM match
+		WHERE match_id = $1
+	`, matchId)
+	defer rows.Close()
+
+	record, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[MatchRecordArg])
+	if err != nil {
+		return nil, err
+	}
+
+	return record, nil
 }
 
 func (q *MatchV5Query) SelectMatchTeam(ctx context.Context, id string) ([]*MatchTeamRecord, error) {
 	rows, _ := q.db.Query(ctx, `
-		SELECT * FROM match_team_record
-		WHERE match_id = $1
+		SELECT record_id, match_id, team_id, objectives, bans
+		FROM match_team_record
+		WHERE record_id = $1
 	`, id)
 	defer rows.Close()
 
