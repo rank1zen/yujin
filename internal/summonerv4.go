@@ -13,7 +13,7 @@ import (
 
 func GetSummoner(q *postgres.Query) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		record, err := q.SummonerV4.SelectSummonerRecord(context.Background(), c.Param("uuid"))
+		record, err := q.SummonerV4.SelectSummonerRecordNewestByPuuid(context.Background(), c.Param("puuid"))
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}

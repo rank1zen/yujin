@@ -1,6 +1,6 @@
 module github.com/rank1zen/yujin
 
-go 1.19
+go 1.22
 
 require (
 	github.com/KnutZuidema/golio v0.0.0-20231120132142-dbe175146b47

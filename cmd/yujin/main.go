@@ -18,18 +18,17 @@ import (
 
 func main() {
 	log := zap.Must(zap.NewDevelopment())
+
 	e := echo.New()
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	pool, err := postgres.NewConnectionPool(context.Background())
 
 	gc := golio.NewClient(os.Getenv("YUJIN_RIOT_API_KEY"), golio.WithRegion(api.RegionNorthAmerica))
 
 	internal.Routes(e, pool, gc)
-
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
