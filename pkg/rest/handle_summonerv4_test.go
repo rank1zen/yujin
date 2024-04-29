@@ -1,4 +1,4 @@
-package internal_test
+package rest
 
 import (
 	"net/http"
@@ -8,13 +8,9 @@ import (
 
 	"github.com/KnutZuidema/golio"
 	"github.com/labstack/echo/v4"
-	"github.com/rank1zen/yujin/internal"
-	"github.com/rank1zen/yujin/internal/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-func TestGetSummonerRecordsByPuuid(t *testing.T) {
-}
 
 func TestPostSummonerRecord(t *testing.T) {
 	tests := []struct {
@@ -45,4 +41,14 @@ func TestPostSummonerRecord(t *testing.T) {
 			assert.Equal(t, tc.httpStatusCode, rec.Code)
 		}
 	}
+}
+
+func TestGetSummonerRecord(t *testing.T) {
+        req, err := http.NewRequest(http.MethodGet, "/summonerv4/", nil)
+        require.NoError(t, err)
+
+        rr := httptest.NewRecorder()
+        handler := http.HandlerFunc(rest.)
+        handler.ServeHTTP(rr, req)
+
 }

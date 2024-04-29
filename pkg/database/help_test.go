@@ -1,26 +1,16 @@
-package summoner
+package database
 
 import (
-	"context"
 	"testing"
 	"time"
 
-	"github.com/rank1zen/yujin/pkg/database"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestSummonerRecord(t *testing.T) {
-	t.Parallel()
-        ctx := context.Background()
-
-        db, err := database.NewFromEnv(ctx, database.NewConfig(testInstance.TestDB.Url.String()))
-        require.NoError(t, err)
-
-        q := NewSummonerV4Query(db)
+func TestRef(t *testing.T) {
 
         batchTime := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC).Truncate(time.Microsecond)
-        records := []*SummonerRecordArg{
+        records := []SummonerRecord{
                 {
                         RecordDate: batchTime,
                         Puuid: "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q",
@@ -52,22 +42,13 @@ func TestSummonerRecord(t *testing.T) {
                         RevisionDate: 1713500782000,
                 },
         }
-        q.InsertBatchSummonerRecord(ctx, records)
 
-        for _, test := range []struct {
-                f *SummonerRecordFilter
-                want []int
-        }{
-                {
-                        &SummonerRecordFilter{},
-                        []int{0, 1, 2},
-                },
-        } {
-                got, err := q.ReadSummonerRecords(ctx, test.f)
-                if assert.NoError(t, err) {
-                        for _, i := range test.want {
-                                assert.Equal(t, records[i].RecordDate, got[i].RecordDate)
-                        }
-                }
+        fields, rows, err := ExtractStructSlice(records)
+        if assert.NoError(t, err) {
+                assert.ElementsMatch(t, []string{"record_date"}, fields)
+                t.Log(fields)
+                t.Log(rows)
         }
+
+	_ = []string{"record_date", "account_id", "profile_icon_id", "revision_date", "name", "summoner_id", "puuid", "summoner_level"}
 }

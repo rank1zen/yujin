@@ -2,14 +2,18 @@ package database
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
@@ -23,18 +27,13 @@ const (
 	databasePassword = "testing123"
 )
 
+// HELPER FOR TEST SUITES.
+// Should be initialized in TestMain
 type TestInstance struct {
 	SkipDB     bool
 	SkipReason string
 
-	TestDB *TestDatabaseResource
-}
-
-// An instance of a Docker container to run DB tests against
-type TestDatabaseResource struct {
-	pool      *dockertest.Pool
-	container *dockertest.Resource
-	Url       *url.URL
+	testDB *TestDatabaseResource
 }
 
 func NewTestInstance() *TestInstance {
@@ -46,27 +45,32 @@ func NewTestInstance() *TestInstance {
 		return &TestInstance{
 			SkipDB:     true,
 			SkipReason: "-short flag provided",
-			TestDB:     nil,
+			testDB:     nil,
 		}
 	}
+
 	return &TestInstance{
 		SkipDB:     false,
 		SkipReason: "",
-		TestDB:     MustDatabaseResource(),
+		testDB:     mustDatabaseResource(),
 	}
 }
 
-func MustDatabaseResource() *TestDatabaseResource {
-	db, err := NewDatabaseResource()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
-
-	return db
+func (t *TestInstance) GetDatabaseResource() *TestDatabaseResource {
+        return t.testDB
 }
 
-func NewDatabaseResource() (*TestDatabaseResource, error) {
+// HELPER FOR TEST SUITES.
+// An instance of a Docker container to run DB tests against
+type TestDatabaseResource struct {
+	pool      *dockertest.Pool
+	container *dockertest.Resource
+	conn      *pgx.Conn
+	mu        sync.Mutex
+	Url       *url.URL
+}
+
+func newDatabaseResource() (*TestDatabaseResource, error) {
 	log.Printf("Connecting to Docker")
 	pool, err := dockertest.NewPool("")
 	if err != nil {
@@ -92,7 +96,10 @@ func NewDatabaseResource() (*TestDatabaseResource, error) {
 		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
 
-	container.Expire(120)
+	err = container.Expire(120)
+	if err != nil {
+		return nil, fmt.Errorf("failed to expire database: %w", err)
+	}
 
 	connUrl := &url.URL{
 		Scheme:   "postgres",
@@ -102,13 +109,85 @@ func NewDatabaseResource() (*TestDatabaseResource, error) {
 		RawQuery: "sslmode=disable",
 	}
 
-        time.Sleep(5 * time.Second)
+	time.Sleep(5 * time.Second)
+
+	ctx := context.Background()
+
+	conn, err := pgx.Connect(ctx, connUrl.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to databse: %w", err)
+	}
+
+	err = dbMigrate(ctx, conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate databse: %w", err)
+	}
 
 	return &TestDatabaseResource{
 		pool:      pool,
 		container: container,
+		conn:      conn,
 		Url:       connUrl,
 	}, nil
+}
+
+func mustDatabaseResource() *TestDatabaseResource {
+	db, err := newDatabaseResource()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+
+	return db
+}
+
+// Clones a new databse from the template, test will fatal on error
+func (t *TestDatabaseResource) NewDB(tb testing.TB) pgDB {
+	tb.Helper()
+
+	ctx := context.Background()
+
+        name, err := randomDatabaseName()
+        if err != nil {
+                tb.Fatalf("no dataname: %s", err)
+        }
+
+        t.mu.Lock()
+        defer t.mu.Unlock()
+
+	q := fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s";`, name, databaseName)
+        _, err = t.conn.Exec(ctx, q)
+        if err != nil {
+                tb.Fatalf("failed to clone template database: %s", err)
+        }
+
+	connUrl := url.URL{
+		Scheme:   t.Url.Scheme,
+		User:     t.Url.User,
+		Host:     t.Url.Host,
+		Path:     name,
+		RawQuery: t.Url.RawQuery,
+	}
+
+	pool, err := pgxpool.New(ctx, connUrl.String())
+	if err != nil {
+                tb.Fatalf("failed to connect: %s", err)
+	}
+
+	tb.Cleanup(func() {
+                pool.Close()
+
+                t.mu.Lock()
+                defer t.mu.Unlock()
+
+                q := fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE);`, name)
+                _, err := t.conn.Exec(ctx, q)
+                if err != nil {
+                        tb.Errorf("failed to drop database %q: %s", name, err)
+                }
+	})
+
+	return pool
 }
 
 func (t *TestDatabaseResource) MustClose() {
@@ -120,7 +199,12 @@ func (t *TestDatabaseResource) MustClose() {
 }
 
 func (t *TestDatabaseResource) Close() error {
-	err := t.pool.Purge(t.container)
+        err := t.conn.Close(context.Background())
+        if err != nil {
+                return err
+        }
+
+	err = t.pool.Purge(t.container)
 	if err != nil {
 		return err
 	}
@@ -128,23 +212,10 @@ func (t *TestDatabaseResource) Close() error {
 	return nil
 }
 
-func (t *TestDatabaseResource) NewDB(tb testing.TB) *DB {
-	tb.Helper()
-
-	var connstr string
-
-	pool, err := pgxpool.New(context.Background(), connstr)
-	if err != nil {
-		tb.Skipf("could not connect to DB")
+func randomDatabaseName() (string, error) {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
 	}
-
-	db := &DB{Pgx: pool}
-
-	tb.Cleanup(func() {
-		ctx := context.Background()
-
-		db.Close(ctx)
-	})
-
-	return db
+	return hex.EncodeToString(b), nil
 }

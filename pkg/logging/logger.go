@@ -14,8 +14,8 @@ func NewLogger() *zap.SugaredLogger {
 	return zap.Must(zap.NewDevelopment()).Sugar()
 }
 
-func WithLogger(ctx context.Context, logger *zap.SugaredLogger) context.Context {
-	return context.WithValue(ctx, logger, logger)
+func WithContext(ctx context.Context, logger *zap.SugaredLogger) context.Context {
+	return context.WithValue(ctx, loggerKey, logger)
 }
 
 func FromContext(ctx context.Context) *zap.SugaredLogger {

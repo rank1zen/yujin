@@ -2,30 +2,69 @@ package database
 
 import (
 	"context"
-	"log"
-	"os"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var testInstance *TestInstance
+func TestDatabaseConnection(t *testing.T) {
+        t.Parallel()
 
-func TestMain(m *testing.M) {
-        testInstance = NewTestInstance()
-        if testInstance.SkipDB {
-                log.Printf("Skipping database tests: (%s)", testInstance.SkipReason)
-        } else {
-                defer testInstance.TestDB.MustClose()
+        if TI.SkipDB {
+                t.Skipf("skipping test: %s", TI.SkipReason)
         }
 
-	code := m.Run()
-	os.Exit(code)
+	ctx := context.Background()
+        db := TI.GetDatabaseResource().NewDB(t)
+
+        var count int
+        err := db.QueryRow(ctx, "SELECT COUNT(*) FROM MatchRecords").Scan(&count)
+        if assert.NoError(t, err) {
+                assert.Equal(t, 0, count)
+        }
+
+        err = db.QueryRow(ctx, "SELECT COUNT(*) FROM SummonerRecords").Scan(&count)
+        if assert.NoError(t, err) {
+                assert.Equal(t, 0, count)
+        }
+
+        err = db.QueryRow(ctx, "SELECT COUNT(*) FROM MatchBanRecords").Scan(&count)
+        if assert.NoError(t, err) {
+                assert.Equal(t, 0, count)
+        }
 }
 
-func TestDatabaseConnection(t *testing.T) {
-	ctx := context.Background()
+func TestDatabaseClone(t *testing.T) {
+        t.Parallel()
 
-        _, err := NewFromEnv(ctx, NewConfig(testInstance.TestDB.Url.String()))
-        assert.NoError(t, err)
+        if TI.SkipDB {
+                t.Skipf("skipping test: %s", TI.SkipReason)
+        }
+
+        _ = context.Background()
+
+        a := func(st *testing.T) {
+                st.Parallel()
+
+                ctx := context.Background()
+                db := TI.GetDatabaseResource().NewDB(st)
+
+                batchTime := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)
+                _, err := db.Exec(ctx, "INSERT INTO SummonerRecords (record_date) VALUES ($1)", batchTime)
+                require.NoError(st, err)
+
+                var count int
+                err = db.QueryRow(ctx, "SELECT COUNT(*) FROM SummonerRecords").Scan(&count)
+                if assert.NoError(t, err) {
+                        assert.Equal(t, 1, count)
+                }
+        }
+
+        for i := range 10 {
+                r := t.Run(fmt.Sprintf("Subtest %d", i), a)
+                assert.True(t, r)
+        }
 }
