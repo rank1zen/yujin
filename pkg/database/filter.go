@@ -22,6 +22,11 @@ func build(q string, start int, filters ...RecordFilter) (string, []any) {
         return q, args
 }
 
+func BuildFilters[T any](arr []T) []RecordFilter {
+        return nil
+}
+
+
 type SummonerRecordFilter struct {
 	Field   string
 	Value   string

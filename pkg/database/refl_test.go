@@ -43,7 +43,7 @@ func TestRef(t *testing.T) {
                 },
         }
 
-        fields, rows, err := ExtractStructSlice(records)
+        fields, rows, err := extractStructSlice(records)
         if assert.NoError(t, err) {
                 assert.ElementsMatch(t, []string{"record_date"}, fields)
                 t.Log(fields)

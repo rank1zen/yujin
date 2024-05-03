@@ -1,53 +1,11 @@
 package database
 
 import (
-	"time"
+	"context"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
 )
-
-// A MatchRecord represents a row of MatchRecords
-type MatchRecord struct {
-	RecordId   string        `db:"record_id"`
-	RecordDate time.Time     `db:"record_date"`
-	MatchId    string        `db:"match_id"`
-	StartTs    time.Time     `db:"start_ts"`
-	Duration   time.Duration `db:"duration"`
-	Surrender  bool          `db:"surrender"`
-	Patch      string        `db:"patch"`
-}
-
-// A FullMatchRecord represents a collection of rows associated to one particular match
-type FullMatchRecord struct {
-	Metadata     *MatchRecord
-	Teams        []*MatchTeamRecord
-	Objectives   []*MatchObjectiveRecord
-	Bans         []*MatchBanRecord
-	Participants []*MatchParticipantRecord
-}
-
-type MatchTeamRecord struct {
-	RecordId  string `db:"record_id"`
-	MatchId   string `db:"match_id"`
-	TeamId    int32  `db:"team_id"`
-	Win       bool   `db:"win"`
-	Surrender bool   `db:"surrender"`
-}
-
-type MatchBanRecord struct {
-	RecordId   string `db:"record_id"`
-	MatchId    string `db:"match_id"`
-	TeamId     int32  `db:"team_id"`
-	ChampionId int    `db:"champion_id"`
-	Turn       int    `db:"turn"`
-}
-
-type MatchObjectiveRecord struct {
-	RecordId string `db:"record_id"`
-	MatchId  string `db:"match_id"`
-	TeamId   int32  `db:"team_id"`
-	Name     string `db:"name"`
-	First    bool   `db:"first"`
-	Kills    int    `db:"kills"`
-}
 
 // MatchParticipantRecord represents a record of a participant in a match
 // stored in the database
@@ -85,4 +43,47 @@ type MatchParticipantRecord struct {
 	TotalDamageDealtToChampions    int `db:"TotalDamageDealtToChampions"`
 	TotalDamageTaken               int `db:"TotalDamageTaken"`
 	TotalHealsOnTeammates          int `db:"TotalHealsOnTeammates"`
+}
+
+type matchV5ParticipantQuery struct {
+	db pgxDB
+}
+
+func NewMatchV5ParticipantQuery(db pgxDB) IRecordQuery[MatchParticipantRecord] {
+	return &matchV5ParticipantQuery{db: db}
+}
+
+func (q *matchV5ParticipantQuery) GetRecords(ctx context.Context, filters ...RecordFilter) ([]*MatchParticipantRecord, error) {
+	return nil, nil
+}
+
+func (q *matchV5ParticipantQuery) CountRecords(ctx context.Context, filters ...RecordFilter) (int64, error) {
+	return 0, nil
+}
+
+func (q *matchV5ParticipantQuery) InsertRecords(ctx context.Context, records []MatchParticipantRecord) (int64, error) {
+	return insertBulk[MatchParticipantRecord](ctx, q.db, "matchparticipantrecords", records)
+}
+
+func (q *matchV5ParticipantQuery) DeleteRecords(ctx context.Context) error {
+	return nil
+}
+
+// GetMatchlist returns match IDs associated with a puuid
+func getMatchlist(db pgxDB) func(context.Context, string) ([]string, error) {
+	return func(ctx context.Context, puuid string) ([]string, error) {
+		rows, _ := db.Query(ctx, `
+                        SELECT match_id
+                        FROM MatchParticipantRecords
+                        WHERE puuid = $1
+                `, puuid)
+
+		defer rows.Close()
+		records, err := pgx.CollectRows(rows, pgx.RowToStructByPos[string])
+		if err != nil {
+			return nil, fmt.Errorf("get matchlist: %w", err)
+		}
+
+		return records, nil
+	}
 }

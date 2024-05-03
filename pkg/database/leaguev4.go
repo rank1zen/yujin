@@ -2,19 +2,11 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
-type leagueV4Query struct {
-	db *DB
-}
-
-func NewLeagueV4Query(db *DB) LeagueV4Query {
-	return &leagueV4Query{db: db}
-}
-
-// LeagueRecords represents a record of a league entry
-type LeagueRecords struct {
+type LeagueRecord struct {
 	RecordId     string    `db:"record_id"`
 	RecordDate   time.Time `db:"record_date"`
 	LeagueId     string    `db:"league_id"`
@@ -27,16 +19,22 @@ type LeagueRecords struct {
 	Losses       int32     `db:"losses"`
 }
 
-// GetLeagueRecords returns a list of LeagueRecords satisfying something
-func (q *leagueV4Query) GetLeagueRecords(ctx context.Context) {
-
+type leagueV4Query struct {
+	db pgxDB
 }
 
-// InsertLeagueRecords inserts a LeagueRecord
-func (q *leagueV4Query) InsertLeagueRecords(ctx context.Context) {
-
+func (q *leagueV4Query) GetRecords(ctx context.Context, filters ...RecordFilter) ([]*LeagueRecord, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
-func (q *leagueV4Query) CountLeagueRecords(ctx context.Context) {
+func (q *leagueV4Query) CountRecords(ctx context.Context, flters ...RecordFilter) (int64, error) {
+	return 0, fmt.Errorf("not implemented")
+}
 
+func (q *leagueV4Query) InsertRecords(ctx context.Context, records []LeagueRecord) (int64, error) {
+	return 0, fmt.Errorf("not implemented")
+}
+
+func (q *leagueV4Query) DeleteRecords(ctx context.Context) error {
+	return fmt.Errorf("not implemented")
 }
