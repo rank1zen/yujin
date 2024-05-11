@@ -25,12 +25,8 @@ type summonerV4Query struct {
 	db pgxDB
 }
 
-func NewSummonerV4Query(db pgxDB) *summonerV4Query {
-	return &summonerV4Query{db: db}
-}
-
 func (q *summonerV4Query) GetRecords(ctx context.Context, filters ...RecordFilter) ([]*SummonerRecord, error) {
-	log := logging.FromContext(ctx)
+	log := logging.FromContext(ctx).Sugar()
 
 	query := `
                 SELECT
@@ -40,7 +36,8 @@ func (q *summonerV4Query) GetRecords(ctx context.Context, filters ...RecordFilte
                         summoner_records
                 WHERE 1=1
         `
-	query, args := build(query, 0, filters...)
+	// query, args := build(query, 0, filters...)
+        args := []any{}
 
 	log.Debugf("Read Records Query: %s", query)
 	rows, _ := q.db.Query(ctx, query, args...)
@@ -48,14 +45,14 @@ func (q *summonerV4Query) GetRecords(ctx context.Context, filters ...RecordFilte
 
 	records, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[SummonerRecord])
 	if err != nil {
-		return nil, fmt.Errorf("select summmoner: %w", err)
+		return nil, fmt.Errorf("get summmoner: %w", err)
 	}
 
 	return records, nil
 }
 
 func (q *summonerV4Query) CountRecords(ctx context.Context, filters ...RecordFilter) (int64, error) {
-	log := logging.FromContext(ctx)
+	log := logging.FromContext(ctx).Sugar()
 
 	query := `
                 SELECT
@@ -98,8 +95,4 @@ func (q *summonerV4Query) InsertRecords(ctx context.Context, records []SummonerR
 	}
 
 	return count, nil
-}
-
-func (q *summonerV4Query) DeleteRecords(ctx context.Context) error {
-	return fmt.Errorf("not implemented")
 }

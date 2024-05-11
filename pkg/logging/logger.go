@@ -2,27 +2,38 @@ package logging
 
 import (
 	"context"
+	"sync"
 
 	"go.uber.org/zap"
 )
 
-type contextKey string
+var (
+	once   sync.Once
+	logger *zap.Logger
+)
 
-const loggerKey = contextKey("logger")
+type ctxKey struct{}
 
-func NewLogger() *zap.SugaredLogger {
-	return zap.Must(zap.NewDevelopment()).Sugar()
+func NewLogger() *zap.Logger {
+        return zap.Must(zap.NewDevelopment())
 }
 
-func WithContext(ctx context.Context, logger *zap.SugaredLogger) context.Context {
-	return context.WithValue(ctx, loggerKey, logger)
+func FromContext(ctx context.Context) *zap.Logger {
+        if l, ok := ctx.Value(ctxKey{}).(*zap.Logger); ok {
+                return l
+        } else if l := logger; l != nil {
+                return l
+        } else {
+                return zap.NewNop()
+        }
 }
 
-func FromContext(ctx context.Context) *zap.SugaredLogger {
-	logger, ok := ctx.Value(loggerKey).(*zap.SugaredLogger)
-	if ok {
-		return logger
-	}
+func WithContext(ctx context.Context, lg *zap.Logger) context.Context {
+        if lp, ok := ctx.Value(ctxKey{}).(*zap.Logger); ok {
+                if lp == lg {
+                        return ctx
+                }
+        }
 
-	return NewLogger()
+	return context.WithValue(ctx, ctxKey{}, lg)
 }

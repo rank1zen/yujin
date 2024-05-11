@@ -7,25 +7,38 @@ import (
 )
 
 type RecordFilter struct {
-        Field string
-        Value any
+	Field string
+	Value any
+}
+
+type fil interface {
+	Eq() (string, any)
+}
+
+type SQLer struct {
+	strings.Builder
+	args []any
+}
+
+
+func (s *SQLer) With(f RecordFilter) {
+	// s.WriteString(fmt.Sprintf(" AND %s = $%d", f.Field, len(args)))
 }
 
 func build(q string, start int, filters ...RecordFilter) (string, []any) {
-        var args []any
-        for _, f := range filters {
-                args = append(args, f.Value)
-                q += fmt.Sprintf(" AND %s = $%d", f.Field, len(args) + start)
-        }
+	var args []any
+	for _, f := range filters {
+		args = append(args, f.Value)
+		q += fmt.Sprintf(" AND %s = $%d", f.Field, len(args)+start)
+	}
 
-        strings.ReplaceAll(q, "\n", " ")
-        return q, args
+	strings.ReplaceAll(q, "\n", " ")
+	return q, args
 }
 
 func BuildFilters[T any](arr []T) []RecordFilter {
-        return nil
+	return nil
 }
-
 
 type SummonerRecordFilter struct {
 	Field   string

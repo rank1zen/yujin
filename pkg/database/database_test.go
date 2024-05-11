@@ -4,27 +4,27 @@ import (
 	"context"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-var TI *testInstance
+var TI TestInstance
 
 func TestMain(m *testing.M) {
-	TI = NewTestInstance()
-	if !TI.SkipDB {
-		defer TI.GetDatabaseResource().MustClose()
-	}
+	TI = MustTestInstance()
+	defer TI.MustClose()
 
 	code := m.Run()
 	os.Exit(code)
 }
 
 func TestFetchSummoner(t *testing.T) {
-        t.Parallel()
+	t.Parallel()
 
-        if TI.SkipDB {
-                t.Skipf("skipping test: %s", TI.SkipReason)
-        }
+	ctx := context.Background()
+	db := TI.NewDatabase(t)
+	gc := TI.GetGolioClient()
 
-        ctx := context.Background()
-        db := TI.GetDatabaseResource().NewDB(t)
+	err := db.FetchAndInsertSummoner(ctx, gc, "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q")
+	assert.NoError(t, err)
 }

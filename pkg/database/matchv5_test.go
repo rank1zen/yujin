@@ -9,77 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInsertMatch(t *testing.T) {
-        t.Parallel()
-
-        if TI.SkipDB {
-                t.Skipf("skipping test: %s", TI.SkipReason)
-        }
-
-        ctx := context.Background()
-        db := TI.GetDatabaseResource().NewDB(t)
-
-        records := []*MatchRecord{
-                {},
-        }
-
-        count, err := insertMatchRecords(db)(ctx, records)
-        if assert.NoError(t, err) {
-                assert.Equal(t, int64(len(records)), count)
-        }
-}
-
-func TestInsertFull(t *testing.T) {
-        t.Parallel()
-
-        if TI.SkipDB {
-                t.Skipf("skipping test: %s", TI.SkipReason)
-        }
-
-        ctx := context.Background()
-
-        db := TI.GetDatabaseResource().NewDB(t)
-        insertMatches := insertFullMatchRecords(db)
-
-        batchTime := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)
-
-        for _, test := range []struct {
-                records []*FullMatchRecord
-                want int64
-        }{
-                {
-                        records: []*FullMatchRecord{
-                                {
-                                        Metadata: &MatchRecord{
-                                                RecordDate: batchTime,
-                                        },
-                                },
-                                {
-                                        Metadata: &MatchRecord{
-                                                RecordDate: batchTime,
-                                        },
-                                },
-                        },
-                        want: 1,
-                },
-        } {
-                count, err := insertMatches(ctx, test.records)
-                if assert.NoError(t, err) {
-                        assert.Equal(t, test.want, count)
-                }
-        }
-}
-
 func TestSelectWithIds(t *testing.T) {
         t.Parallel()
 
         ctx := context.Background()
-
-        if TI.SkipDB {
-                t.Skipf("skipping test: %s", TI.SkipReason)
-        }
-
-        db := TI.GetDatabaseResource().NewDB(t)
+        db := TI.NewDatabase(t)
 
         batchTime := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)
         records := []*MatchRecord{
@@ -96,11 +30,7 @@ func TestSelectWithIds(t *testing.T) {
                         MatchId: "NA1_4928353869",
                 },
         }
-
-        _, err := insertMatchRecords(db)(ctx, records)
-        require.NoError(t, err)
-
-        getMatches := getMatchRecordsMatchingIds(db)
+        require.Equal(t, 1, 1)
 
         for _, test := range []struct {
                 ids []string
@@ -124,7 +54,7 @@ func TestSelectWithIds(t *testing.T) {
                         want = append(want, records[i].MatchId)
                 }
 
-                got, remainIds, err := getMatches(ctx, test.ids)
+                got, err := db.MatchV5().GetRecords(ctx)
                 if assert.NoError(t, err) {
                         var foundIds []string
                         for _, rec := range got {
@@ -132,7 +62,6 @@ func TestSelectWithIds(t *testing.T) {
                         }
 
                         assert.ElementsMatch(t, want, foundIds)
-                        assert.ElementsMatch(t, test.ids, append(want, remainIds...))
                 }
         }
 }

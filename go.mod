@@ -4,8 +4,8 @@ go 1.22
 
 require (
 	github.com/KnutZuidema/golio v0.0.0-20231120132142-dbe175146b47
+	github.com/a-h/templ v0.2.663
 	github.com/jackc/tern/v2 v2.1.1
-	github.com/labstack/echo/v4 v4.11.4
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
@@ -35,9 +35,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
-	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/lib/pq v1.3.0 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -51,8 +49,6 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
@@ -69,7 +65,6 @@ require (
 
 require (
 	github.com/jackc/pgx/v5 v5.5.1
-	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 )

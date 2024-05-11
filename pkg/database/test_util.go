@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/KnutZuidema/golio"
-	"github.com/KnutZuidema/golio/api"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ory/dockertest/v3"
@@ -34,6 +33,7 @@ const (
 // Should be initialized in TestMain
 type TestInstance interface {
 	NewDatabase(tb testing.TB) DB
+        GetGolioClient() *golio.Client
 	Close() error
 	MustClose()
 }
@@ -115,7 +115,8 @@ func NewTestInstance() (TestInstance, error) {
 		return nil, fmt.Errorf("failed to migrate databse: %w", err)
 	}
 
-	gc := golio.NewClient(riotApiKey, golio.WithRegion(api.RegionNorthAmerica))
+        log.Printf("Starting Golio Client")
+        gc := NewGolioClient(riotApiKey)
 
 	return &testInstance{
 		skipDB:      false,
@@ -187,12 +188,16 @@ func (t *testInstance) NewDatabase(tb testing.TB) DB {
 		}
 	})
 
-	db, err := NewDB(ctx, connUrl.String(), t.golioClient)
+	db, err := NewDB(ctx, connUrl.String())
 	if err != nil {
-                tb.Fatalf("failed to create db :%w", err)
+                tb.Fatalf("failed to create db :%s", err)
 	}
 
 	return db
+}
+
+func (t *testInstance) GetGolioClient() *golio.Client {
+        return t.golioClient
 }
 
 func (t *testInstance) MustClose() {

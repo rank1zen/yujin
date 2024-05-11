@@ -61,14 +61,6 @@ func (q *matchV5ParticipantQuery) CountRecords(ctx context.Context, filters ...R
 	return 0, nil
 }
 
-func (q *matchV5ParticipantQuery) InsertRecords(ctx context.Context, records []MatchParticipantRecord) (int64, error) {
-	return insertBulk[MatchParticipantRecord](ctx, q.db, "matchparticipantrecords", records)
-}
-
-func (q *matchV5ParticipantQuery) DeleteRecords(ctx context.Context) error {
-	return nil
-}
-
 // GetMatchlist returns match IDs associated with a puuid
 func getMatchlist(db pgxDB) func(context.Context, string) ([]string, error) {
 	return func(ctx context.Context, puuid string) ([]string, error) {

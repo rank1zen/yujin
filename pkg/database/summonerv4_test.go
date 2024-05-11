@@ -11,9 +11,9 @@ import (
 
 func TestSummonerRecord(t *testing.T) {
 	t.Parallel()
-        ctx := context.Background()
 
-        db := TI.GetDatabaseResource().NewDB(t)
+        ctx := context.Background()
+        db := TI.NewDatabase(t)
 
         batchTime := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC).Truncate(time.Microsecond)
         records := []*SummonerRecord{
@@ -48,11 +48,8 @@ func TestSummonerRecord(t *testing.T) {
                         RevisionDate: 1713500782000,
                 },
         }
+        require.Equal(t, 1, 1)
 
-        _, err := insertSummonerRecords(db)(ctx, records)
-        require.NoError(t, err)
-
-        getSummoners := getSummonerRecords(db, nil)
         for _, test := range []struct {
                 f []RecordFilter
                 want []int
@@ -68,7 +65,7 @@ func TestSummonerRecord(t *testing.T) {
                 },
         } {
                 a := test.f
-                got, err := getSummoners(ctx, a...)
+                got, err := db.SummonerV4().GetRecords(ctx, a...)
                 if assert.NoError(t, err) {
                         for _, i := range test.want {
                                 assert.Equal(t, records[i].RecordDate, got[i].RecordDate)

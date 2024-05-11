@@ -24,11 +24,3 @@ func (q *matchV5BanQuery) GetRecords(ctx context.Context, filters ...RecordFilte
 func (q *matchV5BanQuery) CountRecords(ctx context.Context, flters ...RecordFilter) (int64, error) {
 	return 0, fmt.Errorf("not implemented")
 }
-
-func (q *matchV5BanQuery) InsertRecords(ctx context.Context, records []MatchBanRecord) (int64, error) {
-	return insertBulk[MatchBanRecord](ctx, q.db, "matchbanrecords", records)
-}
-
-func (q *matchV5BanQuery) DeleteRecords(ctx context.Context) error {
-	return fmt.Errorf("not implemented")
-}

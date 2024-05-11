@@ -25,11 +25,3 @@ func (q *matchV5ObjQuery) GetRecords(ctx context.Context, filters ...RecordFilte
 func (q *matchV5ObjQuery) CountRecords(ctx context.Context, filters ...RecordFilter) (int64, error) {
 	return 0, fmt.Errorf("not implemented")
 }
-
-func (q *matchV5ObjQuery) InsertRecords(ctx context.Context, records []MatchObjectiveRecord) (int64, error) {
-	return insertBulk[MatchObjectiveRecord](ctx, q.db, "matchteamrecords", records)
-}
-
-func (q *matchV5ObjQuery) DeleteRecords(ctx context.Context) error {
-	return fmt.Errorf("not implemented")
-}
