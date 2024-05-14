@@ -1,0 +1,15 @@
+package components
+
+type SummonerCardProps interface {
+	Name() string
+	Level() string
+	ProfileIcon() string
+}
+
+templ SummonerRecord(props SummonerCardProps) {
+	<div>
+		<p> {props.Name()} </p>
+		<p> {props.Level()} </p>
+		<p> {props.ProfileIcon()} </p>
+	</div>
+}

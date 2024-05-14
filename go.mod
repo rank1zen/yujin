@@ -7,6 +7,7 @@ require (
 	github.com/a-h/templ v0.2.663
 	github.com/jackc/tern/v2 v2.1.1
 	github.com/ory/dockertest/v3 v3.10.0
+	github.com/sethvargo/go-envconfig v1.0.1
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
 	google.golang.org/grpc v1.63.2

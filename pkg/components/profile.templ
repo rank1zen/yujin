@@ -1,0 +1,50 @@
+package components
+
+type MatchCardProps interface {
+	Win() bool
+	GameDuration() string
+	GameDate() string
+	GamePatch() string
+	KDA() string
+	CS() string
+}
+
+templ MatchCard(props MatchCardProps) {
+	<div>
+		<div>
+			<p> {props.GameDate()} </p>
+			<p> {props.GameDuration()} </p>
+			<p> {props.GamePatch()} </p>
+		</div>
+		<div>
+			<p> {props.KDA()} </p>
+			<p> {props.CS()} </p>
+		</div>
+	</div>
+}
+
+templ MatchCards(props ...MatchCardProps) {
+	<div>
+		for _, p := range props {
+			@MatchCard(p)
+		}
+	</div>
+}
+
+type ProfilePageProps interface {
+	Matchlist() []MatchCardProps
+	Summoner() SummonerCardProps
+}
+
+templ ProfilePage(props ProfilePageProps) {
+	@page("Summoner Profile Page") {
+		<div>
+			<div>
+				@SummonerRecord(props.Summoner())
+			</div>
+			<div>
+				@MatchCards(props.Matchlist()...)
+			</div>
+		</div>
+	}
+}

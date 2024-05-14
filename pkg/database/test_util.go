@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/KnutZuidema/golio"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ory/dockertest/v3"
@@ -33,7 +32,7 @@ const (
 // Should be initialized in TestMain
 type TestInstance interface {
 	NewDatabase(tb testing.TB) DB
-        GetGolioClient() *golio.Client
+	GetGolioClient() RiotClient
 	Close() error
 	MustClose()
 }
@@ -42,12 +41,12 @@ type testInstance struct {
 	skipDB       bool
 	skipDBReason string
 
-	pool        *dockertest.Pool
-	container   *dockertest.Resource
-	golioClient *golio.Client
-	conn        *pgx.Conn
-	url         *url.URL
-	mu          sync.Mutex
+	pool       *dockertest.Pool
+	container  *dockertest.Resource
+	conn       *pgx.Conn
+	url        *url.URL
+	mu         sync.Mutex
+	riotClient RiotClient
 }
 
 func NewTestInstance() (TestInstance, error) {
@@ -115,16 +114,16 @@ func NewTestInstance() (TestInstance, error) {
 		return nil, fmt.Errorf("failed to migrate databse: %w", err)
 	}
 
-        log.Printf("Starting Golio Client")
-        gc := NewGolioClient(riotApiKey)
+	log.Printf("Starting Golio Client")
+	riot := NewGolioClient(ctx, riotApiKey)
 
 	return &testInstance{
-		skipDB:      false,
-		pool:        pool,
-		container:   container,
-		conn:        conn,
-		url:         connUrl,
-		golioClient: gc,
+		skipDB:     false,
+		pool:       pool,
+		container:  container,
+		conn:       conn,
+		url:        connUrl,
+		riotClient: riot,
 	}, nil
 }
 
@@ -190,14 +189,14 @@ func (t *testInstance) NewDatabase(tb testing.TB) DB {
 
 	db, err := NewDB(ctx, connUrl.String())
 	if err != nil {
-                tb.Fatalf("failed to create db :%s", err)
+		tb.Fatalf("failed to create db :%s", err)
 	}
 
 	return db
 }
 
-func (t *testInstance) GetGolioClient() *golio.Client {
-        return t.golioClient
+func (t *testInstance) GetGolioClient() RiotClient {
+	return t.riotClient
 }
 
 func (t *testInstance) MustClose() {

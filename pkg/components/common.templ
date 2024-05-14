@@ -1,0 +1,24 @@
+package components
+
+templ head(title string) {
+	if title == "" {
+		title = "HI"
+	}
+
+	<title>{ title }</title>
+	<meta charset="utf-8"/>
+}
+
+templ page(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			@head(title)
+		</head>
+		<body>
+			<main>
+				{ children... }
+			</main>
+		</body>
+	</html>
+}

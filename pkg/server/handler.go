@@ -2,9 +2,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
-	"github.com/KnutZuidema/golio"
 	"github.com/rank1zen/yujin/pkg/database"
 )
 
@@ -14,16 +14,21 @@ type profilesHandler struct {
 
 type Env interface {
 	GetDatabase() database.DB
-	GetGolioClient() *golio.Client
+	GetGolioClient() database.RiotClient
 }
 
-func NewHandler(ctx context.Context, r *http.ServeMux, env Env) (*http.ServeMux, error) {
-	h := profilesHandler{db: env.GetDatabase()}
+func NewHandler(ctx context.Context, router *http.ServeMux, env Env) (*http.ServeMux, error) {
+	db := env.GetDatabase()
+	if db == nil {
+		return nil, fmt.Errorf("no database found in server env")
+	}
+
+	h := profilesHandler{db: db}
 
 	gc := env.GetGolioClient()
 
-	r.HandleFunc("GET /profile/{puuid}", h.getSummoner())
-	r.HandleFunc("POST /profile/{puuid}/publish", h.fetchSummoner(gc))
+	router.HandleFunc("GET /profile/{puuid}", h.getSummoner())
+	router.HandleFunc("POST /profile/{puuid}/publish", h.fetchSummoner(gc))
 
-	return r, nil
+	return router, nil
 }
