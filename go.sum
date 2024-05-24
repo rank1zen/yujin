@@ -2,6 +2,8 @@ github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 h1:L/gRVlceqvL25
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/KnutZuidema/golio v0.0.0-20231120132142-dbe175146b47 h1:lMpuJSMj37U9+4yy8y221bQ0kCla8eKY/QkX56HNRdk=
 github.com/KnutZuidema/golio v0.0.0-20231120132142-dbe175146b47/go.mod h1:dTKkBx6BhmD9IK3m7IISomS8Ay4+gnJHFI2ZRs5KsHM=
+github.com/KnutZuidema/golio v1.0.0 h1:/0IgO6wpbkkt/pNyaa9CfuGjnjXvKc7cTDOhjyYSyOA=
+github.com/KnutZuidema/golio v1.0.0/go.mod h1:dTKkBx6BhmD9IK3m7IISomS8Ay4+gnJHFI2ZRs5KsHM=
 github.com/Masterminds/goutils v1.1.1 h1:5nUrii3FMTL5diU80unEVvNevw1nH4+ZV4DSLVJLSYI=
 github.com/Masterminds/goutils v1.1.1/go.mod h1:8cTjp+g8YejhMuvIA5y2vz3BpJxksy863GQaJW2MFNU=
 github.com/Masterminds/semver/v3 v3.2.0 h1:3MEsd0SM6jqZojhjLWWeBY+Kcjy9i6MQAeY7YgDP83g=

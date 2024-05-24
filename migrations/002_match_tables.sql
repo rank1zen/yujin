@@ -29,7 +29,7 @@ CREATE TABLE MatchBanRecords (
 CREATE TABLE MatchObjectiveRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
 	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords (match_id),
-        team_id INT NOT NULL,
+    team_id INT NOT NULL,
 
 	name VARCHAR(128),
 	first BOOLEAN,

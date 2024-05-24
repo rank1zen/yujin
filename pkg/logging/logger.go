@@ -7,6 +7,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// TODO: there are some clever things we can do with logging and embedded interfaces
+
 var (
 	once   sync.Once
 	logger *zap.Logger

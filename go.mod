@@ -3,7 +3,7 @@ module github.com/rank1zen/yujin
 go 1.22
 
 require (
-	github.com/KnutZuidema/golio v0.0.0-20231120132142-dbe175146b47
+	github.com/KnutZuidema/golio v1.0.0
 	github.com/a-h/templ v0.2.663
 	github.com/jackc/tern/v2 v2.1.1
 	github.com/ory/dockertest/v3 v3.10.0

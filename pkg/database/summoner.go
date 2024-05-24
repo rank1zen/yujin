@@ -6,28 +6,36 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rank1zen/yujin/pkg/logging"
 )
-
-// FIXME: A bunch of things need to get fixed here
 
 type SummonerRecord struct {
 	RecordId      string    `db:"record_id"`
 	RecordDate    time.Time `db:"record_date"`
 	Puuid         string    `db:"puuid"`
 	AccountId     string    `db:"account_id"`
-	SummonerId    string    `db:"id"`
-	Name          string    `db:"name"`
+	SummonerId    string    `db:"summoner_id"`
 	ProfileIconId int32     `db:"profile_icon_id"`
 	SummonerLevel int32     `db:"summoner_level"`
-	RevisionDate  int64     `db:"revision_date"`
+	RevisionDate  time.Time `db:"revision_date"`
+}
+
+// FIXME: A simple sorting thing for summoners
+// Which summoner (puuid), from dates A to B, Sort by Date ASC or DESC
+// FIXME: pagination yes or no?
+type SummonerRecordFilteR struct {
+	Puuid   string
+	DateMin time.Time
+	DateMax time.Time
+	DateAsc bool
 }
 
 type SummonerQuery interface {
 	FetchAndInsert(ctx context.Context, gc RiotClient, puuid string) error
 	GetRecent(ctx context.Context, puuid string) (SummonerRecord, error)
-	GetRecords(ctx context.Context, filters ...RecordFilter) ([]SummonerRecord, error)
-	CountRecords(ctx context.Context, filters ...RecordFilter) (int64, error)
+
+	// FIXME: these filters are rubbish mate
+	GetRecords(ctx context.Context, filter SummonerRecordFilteR) ([]SummonerRecord, error)
+	CountRecords(ctx context.Context, filter SummonerRecordFilteR) (int64, error)
 }
 
 type summonerQuery struct {
@@ -39,76 +47,46 @@ func NewSummonerQuery(db pgxDB) SummonerQuery {
 }
 
 func (q *summonerQuery) FetchAndInsert(ctx context.Context, gc RiotClient, puuid string) error {
-	timestamp := time.Now()
 	summ, err := gc.GetSummoner(puuid)
 	if err != nil {
-		return fmt.Errorf("GetByPUUID: %w", err)
+		return fmt.Errorf("fetch: %w", err)
 	}
 
+	revDate := time.Unix(int64(summ.RevisionDate), 0)
+
 	_, err = q.db.Exec(ctx, `
-                INSERT INTO SummonerRecords
-                (record_date, account_id, id, name, puuid, profile_icon_id, revision_date, summoner_level)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        `,
-		timestamp, summ.AccountID, summ.ID, summ.Name, summ.PUUID,
-		summ.ProfileIconID, summ.RevisionDate, summ.SummonerLevel)
+	INSERT INTO SummonerRecords
+	(account_id, summoner_id, puuid, profile_icon_id, revision_date, summoner_level)
+	VALUES ($1, $2, $3, $4, $5, $6)
+        `, summ.AccountID, summ.ID, summ.PUUID, summ.ProfileIconID, revDate, summ.SummonerLevel)
 	if err != nil {
-		return fmt.Errorf("insert summoner: %w", err)
+		return fmt.Errorf("insert: %w", err)
 	}
 
 	return nil
 }
 
 func (q *summonerQuery) GetRecent(ctx context.Context, puuid string) (SummonerRecord, error) {
-	// TODO: Complete this function
-	return SummonerRecord{}, nil
+	// TODO: Check that this query is actually good
+	rows, _ := q.db.Query(ctx, `
+	SELECT t1.*
+	FROM SummonerRecords AS t1
+	JOIN (
+		SELECT MAX(record_date) AS recent, puuid
+		FROM SummonerRecords
+		WHERE puuid = $1
+		GROUP BY puuid
+	) AS t2 ON t2.puuid = t1.puuid AND t2.recent = t1.record_date
+	WHERE t1.puuid = $1;
+	`, puuid)
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[SummonerRecord])
 }
 
-func (q *summonerQuery) GetRecords(ctx context.Context, filters ...RecordFilter) ([]SummonerRecord, error) {
-	log := logging.FromContext(ctx).Sugar()
-
-	query := `
-                SELECT
-                        record_id, record_date, puuid, account_id, id,
-                        name, profile_icon_id, summoner_level, revision_date
-                FROM
-                        summoner_records
-                WHERE 1=1
-        `
-	// query, args := build(query, 0, filters...)
-	args := []any{}
-
-	log.Debugf("Read Records Query: %s", query)
-	rows, _ := q.db.Query(ctx, query, args...)
-	defer rows.Close()
-
-	records, err := pgx.CollectRows(rows, pgx.RowToStructByName[SummonerRecord])
-	if err != nil {
-		return nil, fmt.Errorf("get summmoner: %w", err)
-	}
-
-	return records, nil
+func (q *summonerQuery) GetRecords(ctx context.Context, filter SummonerRecordFilteR) ([]SummonerRecord, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
-func (q *summonerQuery) CountRecords(ctx context.Context, filters ...RecordFilter) (int64, error) {
-	log := logging.FromContext(ctx).Sugar()
-
-	query := `
-                SELECT
-                        COUNT(*)
-                FROM
-                        summoner_records
-                WHERE 1=1
-        `
-	query, args := build(query, 0, filters...)
-
-	log.Debugf("Read Records Query: %s", query)
-
-	var count int64
-	err := q.db.QueryRow(ctx, query, args...).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("summoner count: %w", err)
-	}
-
-	return count, nil
+func (q *summonerQuery) CountRecords(ctx context.Context, filter SummonerRecordFilteR) (int64, error) {
+	return 0, fmt.Errorf("not implemented")
 }

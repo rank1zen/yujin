@@ -25,7 +25,7 @@ const (
 	databaseName     = "test_db"
 	databaseUser     = "test_user"
 	databasePassword = "testing123"
-	riotApiKey       = ""
+	riotApiKey       = "RGAPI-73c9cd8b-a5e8-4910-a985-37a1248b393f"
 )
 
 // HELPER FOR TEST SUITES.

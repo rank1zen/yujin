@@ -58,37 +58,6 @@ type SummonerRecordCount struct {
 	DateMax time.Time
 }
 
-func buildSummmonerFilterQuery(f *SummonerRecordFilter) (string, []interface{}) {
-	var args []interface{}
-	q := `
-                SELECT
-                        record_id, record_date, puuid, account_id, id,
-                        name, profile_icon_id, summoner_level, revision_date
-                FROM
-                        summoner_records
-                WHERE 1=1
-        `
-
-	if f.Field != "" {
-		args = append(args, f.Value)
-		q += fmt.Sprintf(" AND %s = $%d", f.Field, len(args))
-	}
-
-	if !f.DateMin.IsZero() {
-		args = append(args, f.DateMin)
-		q += fmt.Sprintf(" AND %s >= $%d", "record_date", len(args))
-	}
-
-	if !f.DateMax.IsZero() {
-		args = append(args, f.DateMax)
-		q += fmt.Sprintf(" AND %s < $%d", "record_date", len(args))
-	}
-
-	q = strings.ReplaceAll(q, "\n", " ")
-
-	return q, args
-}
-
 func buildSummonerCountQuery(f *SummonerRecordCount) (string, []interface{}) {
 	var args []interface{}
 	q := `

@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/KnutZuidema/golio/riot/lol"
+	"github.com/jackc/pgx/v5"
 )
 
 // FIXME: LOLOL
@@ -16,10 +19,8 @@ type MatchInfoRecord struct {
 	RecordId   string        `db:"record_id"`
 	RecordDate time.Time     `db:"record_date"`
 	MatchId    string        `db:"match_id"`
-	StartTs    time.Time     `db:"start_ts"`
-	Duration   time.Duration `db:"duration"`
-	Surrender  bool          `db:"surrender"`
 	Patch      string        `db:"patch"`
+	Duration   time.Duration `db:"duration"`
 }
 
 type MatchObjectiveRecord struct {
@@ -85,8 +86,11 @@ type MatchTeamRecord struct {
 
 type MatchQuery interface {
 	FetchAndInsert(ctx context.Context, riot RiotClient, puuid string) error
+
+	// Fetch all the matches on the account  
 	FetchAndInsertAll(ctx context.Context, riot RiotClient, puuid string) error
 
+	// Get most recent matches 
 	GetMatchlist(ctx context.Context, puuid string) ([]MatchRecord, error)
 
 	// TODO: Implement these
@@ -105,13 +109,102 @@ func NewMatchQuery(db pgxDB) MatchQuery {
 }
 
 func (q *matchQuery) FetchAndInsert(ctx context.Context, riot RiotClient, puuid string) error {
-	return fmt.Errorf("not implemented")
+	ids, err := riot.GetMatchlist(puuid)
+	if err != nil {
+		return fmt.Errorf("failed to fetch ids: %w", err)
+	}
+
+	rows, _ := q.db.Query(ctx, `
+	SELECT match_id FROM MatchRecords WHERE match_id IN ANY($1)
+	`, ids)
+
+	newIDs, err := pgx.CollectRows(rows, pgx.RowToStructByName[string])
+	if err != nil {
+		return fmt.Errorf("failed to check db for new ids: %w", err)
+	}
+
+	err = pgx.BeginFunc(ctx, q.db, fetchAndInsertMatches(ctx, riot, newIDs))
+	if err != nil {
+		return fmt.Errorf("failed to fetch and insert: %w", err)
+	}
+	
+	return nil
 }
 
 func (q *matchQuery) FetchAndInsertAll(ctx context.Context, riot RiotClient, puuid string) error {
 	return fmt.Errorf("not implemented")
 }
 
+// fetchAndInsertMatches returns a function to execute in transaction.
+// Queries Riot for matches and inserts.
+func fetchAndInsertMatches(ctx context.Context, riot RiotClient, ids []string) func(pgx.Tx) error {
+	return func(tx pgx.Tx) error {
+		for _, id := range ids {
+			match, err := riot.GetMatch(id)
+			if err != nil {
+				return err
+			}
+
+			err = insertFullMatch(ctx, tx, match)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+}
+
+// TODO: Add everything
+func insertFullMatch(ctx context.Context, db pgx.Tx, m *lol.Match) error {
+	matchID := m.Metadata.MatchID
+
+	_, err := db.Exec(ctx, `
+	INSERT INTO MatchInfoRecords
+	(record_date, match_id, duration, patch)
+	VALUES ($1, $2, $3, $4)
+	`, m.Info.GameStartTimestamp, matchID, m.Info.GameDuration, m.Info.GameVersion)
+	if err != nil {
+		return fmt.Errorf("MatchInfo: %w", err)
+	}
+
+	for _, p := range m.Info.Participants {
+		_, err := db.Exec(ctx, `
+		INSERT INTO MatchParticipantRecords
+		(match_id, puuid)
+		VALUES ($1, $2)
+		`, matchID, p.PUUID)
+		if err != nil {
+			return fmt.Errorf("MatchParticipant: %w", err)
+		}
+	}
+
+	for _, t := range m.Info.Teams {
+		_, err := db.Exec(ctx, `
+		INSERT INTO MatchTeamRecords
+		(match_id, team_id)
+		`, matchID, t.TeamID)
+		if err != nil {
+			return fmt.Errorf("MatchTeam: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (q *matchQuery) GetMatchlist(ctx context.Context, puuid string) ([]MatchRecord, error) {
+	rows, _ := q.db.Query(ctx, `
+	SELECT i.record_date, i.match_id, i.duration, i.patch
+	FROM MatchInfoRecords AS i
+		JOIN MatchParticipantRecords AS p ON i.match_id = p.match_id
+	WHERE p.puuid = $1
+	`, puuid)
+
+	_, err := pgx.CollectRows(rows, pgx.RowToStructByName[MatchInfoRecord])
+	if err != nil {
+		return nil, nil
+	}
+
+
 	return nil, nil
 }
