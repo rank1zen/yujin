@@ -27,8 +27,8 @@ func NewHandler(ctx context.Context, router *http.ServeMux, env Env) (*http.Serv
 
 	gc := env.GetGolioClient()
 
-	router.HandleFunc("GET /profile/{puuid}", h.getSummoner())
-	router.HandleFunc("POST /profile/{puuid}/publish", h.fetchSummoner(gc))
+	router.HandleFunc("GET /records/summoner/{puuid}", h.getSummoner())
+	router.HandleFunc("POST /records/summoner/{puuid}/publish", h.fetchSummoner(gc))
 
 	return router, nil
 }

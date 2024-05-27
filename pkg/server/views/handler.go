@@ -9,17 +9,16 @@ import (
 
 type Env interface {
 	GetDatabase() database.DB
-	GetGolioClient() database.RiotClient
+	// GetGolioClient() database.RiotClient
 }
 
 func NewHandler(ctx context.Context, router *http.ServeMux, env Env) (*http.ServeMux, error) {
 	db := env.GetDatabase()
-	riot := env.GetGolioClient()
 
 	handler := profilesHandler{db: db}
 
 	router.HandleFunc("/", nil)
-	router.HandleFunc("/profile/{name}", handler.profile())
+	router.HandleFunc("/profile/{puuid}", handler.profile())
 
 	return router, nil
 }

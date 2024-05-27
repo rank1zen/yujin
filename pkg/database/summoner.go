@@ -67,7 +67,7 @@ func (q *summonerQuery) FetchAndInsert(ctx context.Context, gc RiotClient, puuid
 }
 
 func (q *summonerQuery) GetRecent(ctx context.Context, puuid string) (SummonerRecord, error) {
-	// TODO: Check that this query is actually good
+	// HACK: Check that this query is actually good
 	rows, _ := q.db.Query(ctx, `
 	SELECT t1.*
 	FROM SummonerRecords AS t1

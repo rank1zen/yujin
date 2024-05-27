@@ -10,6 +10,7 @@ import (
 	"github.com/rank1zen/yujin/pkg/database"
 	"github.com/rank1zen/yujin/pkg/logging"
 	"github.com/rank1zen/yujin/pkg/server"
+	"github.com/rank1zen/yujin/pkg/server/views"
 )
 
 type App struct {
@@ -34,6 +35,11 @@ func (a *App) RunServer(ctx context.Context, port string) error {
 	router := http.NewServeMux()
 	// sub route
 	handler, err := server.NewHandler(ctx, router, a)
+	if err != nil {
+		return fmt.Errorf("failed to create http handler: %w", err)
+	}
+
+	handler, err = views.NewHandler(ctx, router, a)
 	if err != nil {
 		return fmt.Errorf("failed to create http handler: %w", err)
 	}

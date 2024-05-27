@@ -8,8 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// FIXME: LOLOL
-
 type LeagueRecord struct {
 	RecordId   string    `db:"record_id"`
 	RecordDate time.Time `db:"record_date"`
@@ -24,7 +22,7 @@ type LeagueRecord struct {
 
 type LeagueQuery interface {
 	FetchAndInsertBySummoner(ctx context.Context, riot RiotClient, summonerId string) error
-	GetRecent(ctx context.Context, summonerId string) (LeagueRecord, error)
+	GetRecentBySummoner(ctx context.Context, summonerId string) (LeagueRecord, error)
 }
 
 type leagueQuery struct {
@@ -53,16 +51,17 @@ func (q *leagueQuery) FetchAndInsertBySummoner(ctx context.Context, riot RiotCli
 	return nil
 }
 
-func (q *leagueQuery) GetRecent(ctx context.Context, summonerId string) (LeagueRecord, error) {
+func (q *leagueQuery) GetRecentBySummoner(ctx context.Context, summonerId string) (LeagueRecord, error) {
 	rows, _ := q.db.Query(ctx, `
-	FIXME PLEASE
 	SELECT t1.* 
 	FROM LeagueRecords AS t1
 	JOIN (
 		SELECT MAX(record_date) AS recent, puuid
 		FROM LeagueRecords
 		WHERE summoner_id = $1
-	)
+		GROUP BY puuid
+	) AS t2 ON t2.summoner_id = t1.summoner_id AND t2.recent = t1.record_date
+	WHERE t1.summoner_id = $1;
 	`, summonerId)
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[LeagueRecord])
 }

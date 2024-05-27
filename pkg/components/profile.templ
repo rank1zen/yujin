@@ -23,7 +23,7 @@ templ MatchCard(props MatchCardProps) {
 	</div>
 }
 
-templ MatchCards(props ...MatchCardProps) {
+templ MatchCardList(props ...MatchCardProps) {
 	<div>
 		for _, p := range props {
 			@MatchCard(p)
@@ -31,19 +31,43 @@ templ MatchCards(props ...MatchCardProps) {
 	</div>
 }
 
-type ProfilePageProps interface {
-	Matchlist() []MatchCardProps
-	Summoner() SummonerCardProps
+type ProfileCardProps interface {
+	Name() string
+	Level() string
+	ProfileIcon() string // FIXME: IMAGE URL????
+
+	IsRanked() bool // Determine if we have a recent rank
+	Wins() string
+	Losses() string
+	Tier() string
+	Rank() string
+	LP() string
+}
+
+templ ProfileCard(props ProfileCardProps) {
+	<div>
+		<p> {props.Name()} </p>
+		<p> {props.Level()} </p>
+		<p> {props.ProfileIcon()} </p>
+		<p> {props.Wins()} </p>
+		<p> {props.Losses()} </p>
+		<p> {props.Tier()} </p>
+	</div>
+}
+
+type ProfilePageProps struct {
+	Profile ProfileCardProps
+	Matchlist []MatchCardProps
 }
 
 templ ProfilePage(props ProfilePageProps) {
 	@page("Summoner Profile Page") {
 		<div>
 			<div>
-				@SummonerRecord(props.Summoner())
+				@ProfileCard(props.Profile)
 			</div>
 			<div>
-				@MatchCards(props.Matchlist()...)
+				@MatchCardList(props.Matchlist...)
 			</div>
 		</div>
 	}

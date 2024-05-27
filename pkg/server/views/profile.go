@@ -13,21 +13,36 @@ type profilesHandler struct {
 
 func (s *profilesHandler) profile() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// FIXME: error checking
-
 		ctx := r.Context()
 
 		r.ParseForm()
 
+		puuid := r.FormValue("puuid")
+
 		// we should be getting the most recent one
-		summoner, err := s.db.Summoner().GetRecent(ctx, "")
+		summoner, err := s.db.Summoner().GetRecent(ctx, puuid)
+		if err != nil {
+			// TODO: how to handle errors?
+		}
 
-		// TODO: we should be getting games for this summoner
-		matches, err := s.db.Match().GetMatchlist(ctx, "")
+		soloq, err := s.db.League().GetRecentBySummoner(ctx, summoner.SummonerId)
+		if err != nil {
+			// TODO: how to handle errors?
+		}
 
-		comp := components.ProfilePage(profilePage{
-			summoner: summoner[0],
+		_, err = s.db.Match().GetMatchlist(ctx, puuid)
+		if err != nil {
+			// TODO: how to handle errors?
+		}
+
+		comp := components.ProfilePage(components.ProfilePageProps{
+			Profile: profileCard{
+				summoner: summoner,
+				rank: soloq,
+			},
+			Matchlist: make([]components.MatchCardProps, 0),
 		})
+
 		comp.Render(ctx, w)
 	}
 }
