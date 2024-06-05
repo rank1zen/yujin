@@ -10,17 +10,45 @@ type MatchCardProps interface {
 }
 
 templ MatchCard(props MatchCardProps) {
-	<div>
-		<div>
-			<p> {props.GameDate()} </p>
-			<p> {props.GameDuration()} </p>
-			<p> {props.GamePatch()} </p>
+	<li class="p-2 bg-red-50 rounded-lg">
+		<div class="flex justify-around items-center gap-4">
+			<div class="flex flex-col flex-none  flex-nowrap text-center justify-between">
+				<p class="text-xl font-bold">{ props.NetLP() } </p>
+				<p class="text-xs">{ props.GameDate() } </p>
+				<p class="text-xs">{ props.GameDuration() } </p>
+			</div>
+			<div class="flex w-40 p-2 rounded-lg flex-none">
+				<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-0.5">
+					<div class="col-span-2 row-span-2">
+						<img src={ props.ChampionIconUrl() } class="size-full rounded-md object-cover"/>
+					</div>
+					<div class="">
+						<img src={ props.Spell1IconUrl() } class="size-full rounded-sm object-cover"/>
+					</div>
+					<div class="">
+						<img src={ props.Spell2IconUrl() } class="size-full rounded-sm object-cover"/>
+					</div>
+					<div class="col-span-2 row-span-2">
+						<img src={ props.PrimaryRune() } class="size-full object-cover"/>
+					</div>
+				</div>
+			</div>
+			<div class="flex-col text-center justify-between">
+				<p class="text-xl font-bold">{ props.KDA() } </p>
+				<p class="text-xs">{ props.KDRatio() } </p>
+				<p class="text-xs">{ props.CS() } </p>
+			</div>
+			<div class="flex w-40 p-2 rounded-lg flex-none">
+				<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-0.5">
+					for _, item := range props.Item() {
+						<div class="">
+							<img src={ item } class="size-full rounded-sm object-cover"/>
+						</div>
+					}
+				</div>
+			</div>
 		</div>
-		<div>
-			<p> {props.KDA()} </p>
-			<p> {props.CS()} </p>
-		</div>
-	</div>
+	</li>
 }
 
 templ MatchCardList(props ...MatchCardProps) {
