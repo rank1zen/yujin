@@ -1,26 +1,31 @@
 -- Write your migrate up statements here
 
-CREATE TABLE MatchRecords (
+CREATE TABLE MatchInfoRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
 	record_date TIMESTAMP NOT NULL,
-	match_id VARCHAR(64) UNIQUE NOT NULL,
 
-	start_ts TIMESTAMP,
-	duration INTERVAL,
-	surrender BOOLEAN,
-	patch VARCHAR(128)
+	match_id VARCHAR(64) UNIQUE NOT NULL,
+	game_date TIMESTAMP NOT NULL,
+	game_duration INTERVAL,
+	game_patch VARCHAR(128),
+	surrender BOOLEAN
 );
 
 CREATE TABLE MatchTeamRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
 	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords(match_id),
-	team_id INT NOT NULL
+	team_id INT NOT NULL,
+	UNIQUE (match_id, team_id),
+
+    team_win BOOLEAN,
+    team_surrendered BOOLEAN,
+    team_early_surrendered BOOLEAN,
 );
 
 CREATE TABLE MatchBanRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords (match_id),
-        team_id INT NOT NULL,
+	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords(match_id),
+    team_id INT NOT NULL REFERENCES MatchTeamRecords(team_id),
 
 	champion_id INT,
 	turn INT
@@ -29,7 +34,7 @@ CREATE TABLE MatchBanRecords (
 CREATE TABLE MatchObjectiveRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
 	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords (match_id),
-    team_id INT NOT NULL,
+    team_id INT NOT NULL REFERENCES MatchTeamRecords(team_id),
 
 	name VARCHAR(128),
 	first BOOLEAN,
@@ -39,7 +44,7 @@ CREATE TABLE MatchObjectiveRecords (
 CREATE TABLE MatchParticipantRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
 	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords (match_id),
-	puuid VARCHAR(128),
+	puuid VARCHAR(128) NOT NULL,
 	UNIQUE (match_id, puuid),
 
 	id INT,
@@ -68,6 +73,21 @@ CREATE TABLE MatchParticipantRecords (
 	total_heals_on_teammates INT
 );
 
+CREATE TABLE MatchRuneRecords (
+	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+
+    match_id VARCHAR(64) NOT NULL,
+    puuid VARCHAR(128) NOT NULL
+);
+
+CREATE TABLE MatchSummonerSpellRecords (
+	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+
+    match_id VARCHAR(64) NOT NULL,
+    puuid VARCHAR(128) NOT NULL,
+    spell_id INT
+);
+
 ---- create above / drop below ----
 
 DROP TABLE MatchRecords;
@@ -75,6 +95,8 @@ DROP TABLE MatchTeamRecords;
 DROP TABLE MatchBanRecords;
 DROP TABLE MatchObjectiveRecords;
 DROP TABLE MatchParticipantRecords;
+DROP TABLE MatchRuneRecords;
+DROP TABLE MatchSummonerSpellRecords;
 
 -- Write your migrate down statements here. If this migration is irreversible
 -- Then delete the separator line above.
