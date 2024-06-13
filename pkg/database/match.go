@@ -2,25 +2,24 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/KnutZuidema/golio/riot/lol"
 	"github.com/jackc/pgx/v5"
 )
-
-// FIXME: LOLOL
-
-type MatchRecord struct {
-	info MatchInfoRecord
-}
 
 type MatchInfoRecord struct {
 	RecordId   string        `db:"record_id"`
 	RecordDate time.Time     `db:"record_date"`
 	MatchId    string        `db:"match_id"`
-	Patch      string        `db:"patch"`
-	Duration   time.Duration `db:"duration"`
+	Patch      string        `db:"game_patch"`
+	Duration   time.Duration `db:"game_duration"`
+	Date       time.Time     `db:"game_date"`
+}
+
+type MatchTeam struct {
+	TeamWin              bool `db:"team_win"`
+	TeamSurrendered      bool `db:"team_surrendered"`
+	TeamEarlySurrendered bool `db:"team_early_surrendered"`
 }
 
 type MatchObjectiveRecord struct {
@@ -32,179 +31,225 @@ type MatchObjectiveRecord struct {
 	Kills    int    `db:"kills"`
 }
 
+type MatchBanRecord struct {
+	RecordId      string `db:"record_id"`
+	MatchId       string `db:"match_id"`
+	TeamId        int32  `db:"team_id"`
+	BanChampionID int    `db:"champion_id"`
+	BanTurn       int    `db:"turn"`
+}
+
+type PlayerMetaInfo struct {
+	PlayerId      int
+	PlayerWin     bool   `db:"player_win"`
+	Position      string `db:"player_position"`
+	SummonerLevel int
+}
+
+type PlayerStats struct {
+	Kills         int `db:"kills"`
+	Deaths        int `db:"deaths"`
+	Assists       int `db:"assists"`
+	CreepScore    int `db:"creep_score"`
+	GoldEarned    int `db:"gold_earned"`
+	GoldSpent     int
+	DoubleKills   int
+	TripleKills   int
+	QuadraKills   int
+	PentaKills    int
+	KillingSprees int
+
+	ChampionExperience int
+	ChampionLevel      int `db:"champion_level"`
+	ChampionID         int `db:"champion_id"`
+	ChampionTransform  int
+
+	VisionScore             int
+	WardsKilled             int
+	WardsPlaced             int
+	DetectorWardsPlaced     int
+	SightWardsBoughtInGame  int
+	VisionWardsBoughtInGame int
+}
+
+type PlayerDamageCharts struct {
+	MagicDamageDealt               int
+	MagicDamageDealtToChampions    int
+	MagicDamageTaken               int
+	PhysicalDamageDealt            int
+	PhysicalDamageDealtToChampions int
+	PhysicalDamageTaken            int
+	TrueDamageDealt                int
+	TrueDamageDealtToChampions     int
+	TrueDamageTaken                int
+	TotalDamageDealt               int
+	TotalDamageDealtToChampions    int
+	TotalDamageShieldedOnTeammates int
+	TotalDamageTaken               int
+	DamageDealtToBuildings         int
+	DamageDealtToObjectives        int
+	DamageDealtToTurrets           int
+	DamageSelfMitigated            int
+	TotalHeal                      int
+	TotalHealsOnTeammates          int
+}
+
+type PlayerMiscStats struct {
+	largestCriticalStrike         int
+	largestKillingSpree           int
+	largestMultiKill              int
+	longestTimeSpentLiving        int
+	neutralMinionsKilled          int
+	objectivesStolen              int
+	objectivesStolenAssists       int
+	totalAllyJungleMinionsKilled  int
+	totalEnemyJungleMinionsKilled int
+	timeCCingOthers               int
+	totalTimeCCDealt              int
+	timePlayed                    int
+	totalMinionsKilled            int
+	totalTimeSpentDead            int
+	totalUnitsHealed              int
+	firstBloodAssist              bool
+	firstBloodKill                bool
+	firstTowerAssist              bool
+	firstTowerKill                bool
+	unrealKills                   int
+	spell1Casts                   int
+	spell2Casts                   int
+	spell3Casts                   int
+	spell4Casts                   int
+	BaronKills                    int
+	DragonKills                   int
+	InhibitorKills                int
+	NexusKills                    int
+	TurretKills                   int
+	TurretTakedowns               int
+	NexusTakedowns                int
+}
+
+type PlayerPings struct {
+	AllInPings         int
+	AssistMePings      int
+	CommandPings       int
+	VisionClearedPings int
+	DangerPings        int
+	EnemyMissingPings  int
+	EnemyVisionPings   int
+	HoldPings          int
+	GetBackPings       int
+	NeedVisionPings    int
+	OnMyWayPings       int
+	PushPings          int
+}
+
+type PlayerItem struct {
+	ItemID int
+}
+
+type PlayerSpell struct {
+	Spell int
+}
+
+type MatchRune struct {
+	Curr          int
+	RuneSelection int
+	RuneRow       int
+}
+
 type MatchParticipantRecord struct {
+	PlayerStats
+	PlayerPings
+
 	RecordId string `db:"record_id"`
 	MatchId  string `db:"match_id"`
 	Puuid    string `db:"puuid"`
-
-	ParticipantId int    `db:"participant_id"`
-	TeamId        int    `db:"team_id"`
-	SummonerName  string `db:"summoner_name"`
-	SummonerLevel int    `db:"summoner_level"`
-	Position      string `db:"position"`
-	ChampId       int    `db:"champion_id"`
-	ChampName     string `db:"champion_name"`
-	ChampLevel    int    `db:"champion_level"`
-
-	Kills      int `db:"kills"`
-	Deaths     int `db:"deaths"`
-	Assists    int `db:"assists"`
-	CreepScore int `db:"creep_score"`
-	GoldEarned int `db:"gold_earned"`
-
-	VisionScore        int `db:"VisionScore"`
-	WardsPlaced        int `db:"WardsPlaced"`
-	ControlWardsPlaced int `db:"ControlWardsPlaced"`
-
-	FirstBloodAssist bool `db:"FirstBloodAssist"`
-	FirstTowerAssist bool `db:"FirstTowerAssist"`
-	TurretTakeDowns  int  `db:"TurretTakeDowns"`
-
-	PhysicalDamageDealtToChampions int `db:"PhysicalDamageDealtToChampions"`
-	MagicDamageDealtToChampions    int `db:"MagicDamageDealtToChampions"`
-	TrueDamageDealtToChampions     int `db:"TrueDamageDealtToChampions"`
-	TotalDamageDealtToChampions    int `db:"TotalDamageDealtToChampions"`
-	TotalDamageTaken               int `db:"TotalDamageTaken"`
-	TotalHealsOnTeammates          int `db:"TotalHealsOnTeammates"`
+	Level    int    `db:"level"`
 }
 
-type MatchBanRecord struct {
-	RecordId   string `db:"record_id"`
-	MatchId    string `db:"match_id"`
-	TeamId     int32  `db:"team_id"`
-	ChampionId int    `db:"champion_id"`
-	Turn       int    `db:"turn"`
+type MatchCard struct {
+	PlayerMetaInfo
+	PlayerStats
+
+	Items []PlayerItem
+
+	SummonerSpell1 int
+	SummonerSpell2 int
+
+	RunePrimary   int
+	RuneSecondary int
 }
 
-type MatchTeamRecord struct {
-	RecordId  string `db:"record_id"`
-	MatchId   string `db:"match_id"`
-	TeamId    int32  `db:"team_id"`
-	Win       bool   `db:"win"`
-	Surrender bool   `db:"surrender"`
+func getMatchHistory(ctx context.Context, db pgxDB, puuid string) ([]MatchCard, error) {
+	rows, _ := db.Query(ctx, `
+		SELECT
+			t1.duration, t1.patch, t1.start_ts
+		FROM MatchInfoRecords AS t1
+		JOIN (
+			SELECT 
+			FROM MatchParticipantRecords
+			WHERE puuid = $1
+		) AS t2
+			ON t2.match_id = t1.match_id
+		ORDER BY record_date DESC;
+	`, puuid)
+
+	return pgx.CollectRows(rows, pgx.RowToStructByNameLax[MatchCard])
 }
 
-type MatchQuery interface {
-	FetchAndInsert(ctx context.Context, riot RiotClient, puuid string) error
-
-	// Fetch all the matches on the account  
-	FetchAndInsertAll(ctx context.Context, riot RiotClient, puuid string) error
-
-	// Get most recent matches 
-	GetMatchlist(ctx context.Context, puuid string) ([]MatchRecord, error)
-
-	// TODO: Implement these
-	// GetBanRecords()
-	// CountBanRecords()
-	// GetObjectiveRecords()
-	// CountObjectiveRecords()
-}
-
-type matchQuery struct {
-	db pgxDB
-}
-
-func NewMatchQuery(db pgxDB) MatchQuery {
-	return &matchQuery{db: db}
-}
-
-func (q *matchQuery) FetchAndInsert(ctx context.Context, riot RiotClient, puuid string) error {
+func fetchAndInsertMatches(ctx context.Context, db pgxDB, riot RiotClient, puuid string) error {
 	ids, err := riot.GetMatchlist(puuid)
 	if err != nil {
-		return fmt.Errorf("failed to fetch ids: %w", err)
+		return err
 	}
 
-	rows, _ := q.db.Query(ctx, `
-	SELECT match_id FROM MatchRecords WHERE match_id IN ANY($1)
+	rows, _ := db.Query(ctx, `
+		SELECT match_id FROM MatchRecords WHERE match_id IN ANY($1)
 	`, ids)
 
 	newIDs, err := pgx.CollectRows(rows, pgx.RowToStructByName[string])
 	if err != nil {
-		return fmt.Errorf("failed to check db for new ids: %w", err)
+		return err
 	}
 
-	err = pgx.BeginFunc(ctx, q.db, fetchAndInsertMatches(ctx, riot, newIDs))
-	if err != nil {
-		return fmt.Errorf("failed to fetch and insert: %w", err)
-	}
-	
-	return nil
-}
-
-func (q *matchQuery) FetchAndInsertAll(ctx context.Context, riot RiotClient, puuid string) error {
-	return fmt.Errorf("not implemented")
-}
-
-// fetchAndInsertMatches returns a function to execute in transaction.
-// Queries Riot for matches and inserts.
-func fetchAndInsertMatches(ctx context.Context, riot RiotClient, ids []string) func(pgx.Tx) error {
-	return func(tx pgx.Tx) error {
-		for _, id := range ids {
-			match, err := riot.GetMatch(id)
+	err = pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error {
+		for _, id := range newIDs {
+			m, err := riot.GetMatch(id)
 			if err != nil {
 				return err
 			}
 
-			err = insertFullMatch(ctx, tx, match)
+			_, err = tx.Exec(ctx, `
+				INSERT INTO MatchInfoRecords
+				(match_id, game_date, game_duration, game_patch)
+				VALUES ($1, $2, $3, $4)
+			`, m.Metadata.MatchID, m.Info.GameStartTimestamp, m.Info.GameDuration,
+				m.Info.GameVersion)
 			if err != nil {
 				return err
+			}
+
+			for _, p := range m.Info.Participants {
+				_, err = tx.Exec(ctx, `
+					INSERT INTO MatchParticipantRecords
+					(match_id, puuid, player_win, player_position, kills,
+					deaths, assists, creep_score, gold_earned, champion_level,
+					champion_id)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+				`, m.Metadata.MatchID, p.PUUID, p.Win, p.Role, p.Kills,
+				p.Deaths, p.Assists, p.PUUID, p.GoldEarned, p.ChampLevel,
+				p.ChampionID)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
 		return nil
-	}
-}
-
-// TODO: Add everything
-func insertFullMatch(ctx context.Context, db pgx.Tx, m *lol.Match) error {
-	matchID := m.Metadata.MatchID
-
-	_, err := db.Exec(ctx, `
-	INSERT INTO MatchInfoRecords
-	(record_date, match_id, duration, patch)
-	VALUES ($1, $2, $3, $4)
-	`, m.Info.GameStartTimestamp, matchID, m.Info.GameDuration, m.Info.GameVersion)
+	})
 	if err != nil {
-		return fmt.Errorf("MatchInfo: %w", err)
-	}
-
-	for _, p := range m.Info.Participants {
-		_, err := db.Exec(ctx, `
-		INSERT INTO MatchParticipantRecords
-		(match_id, puuid)
-		VALUES ($1, $2)
-		`, matchID, p.PUUID)
-		if err != nil {
-			return fmt.Errorf("MatchParticipant: %w", err)
-		}
-	}
-
-	for _, t := range m.Info.Teams {
-		_, err := db.Exec(ctx, `
-		INSERT INTO MatchTeamRecords
-		(match_id, team_id)
-		`, matchID, t.TeamID)
-		if err != nil {
-			return fmt.Errorf("MatchTeam: %w", err)
-		}
+		return err
 	}
 
 	return nil
-}
-
-func (q *matchQuery) GetMatchlist(ctx context.Context, puuid string) ([]MatchRecord, error) {
-	rows, _ := q.db.Query(ctx, `
-	SELECT i.record_date, i.match_id, i.duration, i.patch
-	FROM MatchInfoRecords AS i
-		JOIN MatchParticipantRecords AS p ON i.match_id = p.match_id
-	WHERE p.puuid = $1
-	`, puuid)
-
-	_, err := pgx.CollectRows(rows, pgx.RowToStructByName[MatchInfoRecord])
-	if err != nil {
-		return nil, nil
-	}
-
-
-	return nil, nil
 }
