@@ -7,8 +7,7 @@ CREATE TABLE MatchInfoRecords (
 	match_id VARCHAR(64) UNIQUE NOT NULL,
 	game_date TIMESTAMP NOT NULL,
 	game_duration INTERVAL,
-	game_patch VARCHAR(128),
-	surrender BOOLEAN
+	game_patch VARCHAR(128)
 );
 
 CREATE TABLE MatchTeamRecords (
@@ -47,30 +46,17 @@ CREATE TABLE MatchParticipantRecords (
 	puuid VARCHAR(128) NOT NULL,
 	UNIQUE (match_id, puuid),
 
-	id INT,
-	summoner_level BIGINT,
-	win BOOLEAN,
-	position TEXT,
+	player_win BOOLEAN,
+	player_position VARCHAR(16),
+
 	kills INT,
 	deaths INT,
 	assists INT,
 	creep_score INT,
 	gold_earned INT,
-	champion_id INT,
-	champion_name TEXT,
-	champion_level INT,
-	vision_score INT,
-	wards_placed INT,
-	control_wards_placed INT,
-	first_blood_assist BOOLEAN,
-	first_tower_assist BOOLEAN,
-	turret_takedowns INT,
-	physical_damage_dealt_to_champions INT,
-	magic_damage_dealt_to_champions INT,
-	true_damage_dealt_to_champions INT,
-	total_damage_dealt_to_champions INT,
-	total_damage_taken INT,
-	total_heals_on_teammates INT
+
+	champion_level      INT,
+	champion_id         INT
 );
 
 CREATE TABLE MatchRuneRecords (
