@@ -2,11 +2,14 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/rank1zen/yujin/pkg/logging"
 )
 
 type Server struct {
@@ -15,9 +18,6 @@ type Server struct {
 	listener net.Listener
 }
 
-// NewServer creates a new server listening on the provided address that responds
-// to the http.Handler. It starts the listener, but does not start the server. If
-// an empty port is given, the server randomly chooses one.
 func NewServer(port string) (*Server, error) {
 	addr := fmt.Sprintf(":" + port)
 	listener, err := net.Listen("tcp", addr)
@@ -33,9 +33,31 @@ func NewServer(port string) (*Server, error) {
 }
 
 func (s *Server) ServeHTTP(ctx context.Context, srv *http.Server) error {
+	log := logging.FromContext(ctx).Sugar()
+
+	errCh := make(chan error, 1)
+	go func() {
+		<-ctx.Done()
+		log.Debug("contex closed")
+		shutdownCtx, done := context.WithTimeout(context.Background(), 5 * time.Second)
+		defer done()
+
+		log.Debug("shutting down")
+		errCh <-srv.Shutdown(shutdownCtx)
+	}()
+
+	// Serve blocks until the provided context is closed
+	log.Infof("serving on port: %s", s.port)
 	err := srv.Serve(s.listener)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("failed to serve: %w", err)
+	}
+
+	log.Debug("stoped")
+
+	err = <-errCh 
 	if err != nil {
-		return fmt.Errorf("ok: %w", err)
+		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 
 	return nil

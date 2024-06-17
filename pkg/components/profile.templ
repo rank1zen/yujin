@@ -2,67 +2,77 @@ package components
 
 type MatchCardProps interface {
 	Win() bool
-	GameDuration() string
+	NetLP() string
 	GameDate() string
-	GamePatch() string
+	GameDuration() string
+
+	ChampionIconUrl() string
+	ChampionLevel() string
+	Spell1IconUrl() string
+	Spell2IconUrl() string
+
+	PrimaryRune() string
+	SecondaryRune() string
+
 	KDA() string
+	KDRatio() string
 	CS() string
+
+	Item() []string
+
+	GamePatch() string
 }
 
-templ MatchCard(props MatchCardProps) {
-	<li class="p-2 bg-red-50 rounded-lg">
-		<div class="flex justify-around items-center gap-4">
-			<div class="flex flex-col flex-none  flex-nowrap text-center justify-between">
-				<p class="text-xl font-bold">{ props.NetLP() } </p>
-				<p class="text-xs">{ props.GameDate() } </p>
-				<p class="text-xs">{ props.GameDuration() } </p>
-			</div>
-			<div class="flex w-40 p-2 rounded-lg flex-none">
-				<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-0.5">
-					<div class="col-span-2 row-span-2">
-						<img src={ props.ChampionIconUrl() } class="size-full rounded-md object-cover"/>
+templ MatchCards(matches ...MatchCardProps) {
+	<ul class="flex flex-col gap-2">
+		for _, m := range matches {
+			<li class="p-2 bg-red-50 rounded-lg">
+				<div class="flex justify-around items-center gap-4">
+					<div class="flex flex-col flex-none  flex-nowrap text-center justify-between">
+						<p class="text-xl font-bold">{ m.NetLP() } </p>
+						<p class="text-xs">{ m.GameDate() } </p>
+						<p class="text-xs">{ m.GameDuration() } </p>
 					</div>
-					<div class="">
-						<img src={ props.Spell1IconUrl() } class="size-full rounded-sm object-cover"/>
-					</div>
-					<div class="">
-						<img src={ props.Spell2IconUrl() } class="size-full rounded-sm object-cover"/>
-					</div>
-					<div class="col-span-2 row-span-2">
-						<img src={ props.PrimaryRune() } class="size-full object-cover"/>
-					</div>
-				</div>
-			</div>
-			<div class="flex-col text-center justify-between">
-				<p class="text-xl font-bold">{ props.KDA() } </p>
-				<p class="text-xs">{ props.KDRatio() } </p>
-				<p class="text-xs">{ props.CS() } </p>
-			</div>
-			<div class="flex w-40 p-2 rounded-lg flex-none">
-				<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-0.5">
-					for _, item := range props.Item() {
-						<div class="">
-							<img src={ item } class="size-full rounded-sm object-cover"/>
+					<div class="flex w-40 p-2 rounded-lg flex-none">
+						<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-0.5">
+							<div class="col-span-2 row-span-2">
+								<img src={ m.ChampionIconUrl() } class="size-full rounded-md object-cover"/>
+							</div>
+							<div class="">
+								<img src={ m.Spell1IconUrl() } class="size-full rounded-sm object-cover"/>
+							</div>
+							<div class="">
+								<img src={ m.Spell2IconUrl() } class="size-full rounded-sm object-cover"/>
+							</div>
+							<div class="col-span-2 row-span-2">
+								<img src={ m.PrimaryRune() } class="size-full object-cover"/>
+							</div>
 						</div>
-					}
+					</div>
+					<div class="flex-col text-center justify-between">
+						<p class="text-xl font-bold">{ m.KDA() } </p>
+						<p class="text-xs">{ m.KDRatio() } </p>
+						<p class="text-xs">{ m.CS() } </p>
+					</div>
+					<div class="flex w-40 p-2 rounded-lg flex-none">
+						<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-0.5">
+							for _, item := range m.Item() {
+								<div class="">
+									<img src={ item } class="size-full rounded-sm object-cover"/>
+								</div>
+							}
+						</div>
+					</div>
 				</div>
-			</div>
-		</div>
-	</li>
-}
-
-templ MatchCardList(props ...MatchCardProps) {
-	<div>
-		for _, p := range props {
-			@MatchCard(p)
+			</li>
 		}
-	</div>
+	</ul>
 }
 
-type ProfileCardProps interface {
+type TProfileCard interface {
 	Name() string
 	Level() string
-	ProfileIcon() string // FIXME: IMAGE URL????
+	ProfileIcon() string
 
 	IsRanked() bool // Determine if we have a recent rank
 	Wins() string
@@ -72,30 +82,34 @@ type ProfileCardProps interface {
 	LP() string
 }
 
-templ ProfileCard(props ProfileCardProps) {
-	<div>
-		<p> {props.Name()} </p>
-		<p> {props.Level()} </p>
-		<p> {props.ProfileIcon()} </p>
-		<p> {props.Wins()} </p>
-		<p> {props.Losses()} </p>
-		<p> {props.Tier()} </p>
+templ ProfileCard(props TProfileCard) {
+	<div class="max-w-sm items-center flex flex-row">
+		<div class="text-sm">
+			<p class="">{ props.Name() } </p>
+			<p>{ props.Level() } </p>
+			<p>{ props.ProfileIcon() } </p>
+		</div>
+		<div class="">
+			<div>{ props.Tier() } </div>
+			<div>{ props.Losses() } </div>
+			<div>{ props.Wins() } </div>
+		</div>
 	</div>
 }
 
 type ProfilePageProps struct {
-	Profile ProfileCardProps
+	Profile   TProfileCard
 	Matchlist []MatchCardProps
 }
 
 templ ProfilePage(props ProfilePageProps) {
-	@page("Summoner Profile Page") {
+	@base("Summoner Profile Page") {
 		<div>
 			<div>
 				@ProfileCard(props.Profile)
 			</div>
 			<div>
-				@MatchCardList(props.Matchlist...)
+				@MatchCards(props.Matchlist...)
 			</div>
 		</div>
 	}

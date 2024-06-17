@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"flag"
 	"fmt"
 	"log"
 	"net/url"
@@ -14,53 +13,28 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 )
 
 const (
-	repository       = "postgres"
-	tag              = "alpine"
-	databaseName     = "test_db"
-	databaseUser     = "test_user"
+	databaseName     = "test-db-template"
+	databaseUser     = "test-user"
 	databasePassword = "testing123"
-	riotApiKey       = "RGAPI-73c9cd8b-a5e8-4910-a985-37a1248b393f"
+
+	defaultPostgresImageRef = "postgres:13-alpine"
 )
 
-// HELPER FOR TEST SUITES.
-// Should be initialized in TestMain
-type TestInstance interface {
-	NewDatabase(tb testing.TB) DB
-	GetGolioClient() RiotClient
-	Close() error
-	MustClose()
+type DBTest struct {
+	mu sync.Mutex
+
+	pool      *dockertest.Pool
+	container *dockertest.Resource
+	url       *url.URL
+	conn      *pgx.Conn
 }
 
-type testInstance struct {
-	skipDB       bool
-	skipDBReason string
-
-	pool       *dockertest.Pool
-	container  *dockertest.Resource
-	conn       *pgx.Conn
-	url        *url.URL
-	mu         sync.Mutex
-	riotClient RiotClient
-}
-
-func NewTestInstance() (TestInstance, error) {
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-
-	if testing.Short() {
-		return &testInstance{
-			skipDB:       true,
-			skipDBReason: "-short flag provided",
-		}, nil
-	}
-
+func NewTestInstance() (*DBTest, error) {
 	// now we are for sure making the db
 	log.Printf("Connecting to Docker")
 	pool, err := dockertest.NewPool("")
@@ -68,10 +42,10 @@ func NewTestInstance() (TestInstance, error) {
 		return nil, fmt.Errorf("failed to connect to Docker: %w", err)
 	}
 
-	log.Printf("Running Docker Container: %s:%s", repository, tag)
+	log.Printf("Running Docker Container: %s:%s", "postgres", "alpine")
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: repository,
-		Tag:        tag,
+		Repository: "postgres",
+		Tag:        "alpine",
 		Env: []string{
 			"POSTGRES_DB=" + databaseName,
 			"POSTGRES_USER=" + databaseUser,
@@ -114,20 +88,15 @@ func NewTestInstance() (TestInstance, error) {
 		return nil, fmt.Errorf("failed to migrate databse: %w", err)
 	}
 
-	log.Printf("Starting Golio Client")
-	riot := NewGolioClient(ctx, riotApiKey)
-
-	return &testInstance{
-		skipDB:     false,
-		pool:       pool,
-		container:  container,
-		conn:       conn,
-		url:        connUrl,
-		riotClient: riot,
+	return &DBTest{
+		pool:      pool,
+		container: container,
+		conn:      conn,
+		url:       connUrl,
 	}, nil
 }
 
-func MustTestInstance() TestInstance {
+func MustTestInstance() *DBTest {
 	db, err := NewTestInstance()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -137,77 +106,7 @@ func MustTestInstance() TestInstance {
 	return db
 }
 
-// Clones a new databse from the template, test will fatal on error
-func (t *testInstance) NewDatabase(tb testing.TB) DB {
-	tb.Helper()
-
-	if t.skipDB {
-		tb.Skipf("skipping db test: %s", t.skipDBReason)
-	}
-
-	ctx := context.Background()
-
-	name, err := randomDatabaseName()
-	if err != nil {
-		tb.Fatalf("no dataname: %s", err)
-	}
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	q := fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s";`, name, databaseName)
-	_, err = t.conn.Exec(ctx, q)
-	if err != nil {
-		tb.Fatalf("failed to clone template database: %s", err)
-	}
-
-	connUrl := url.URL{
-		Scheme:   t.url.Scheme,
-		User:     t.url.User,
-		Host:     t.url.Host,
-		Path:     name,
-		RawQuery: t.url.RawQuery,
-	}
-
-	pool, err := pgxpool.New(ctx, connUrl.String())
-	if err != nil {
-		tb.Fatalf("failed to connect: %s", err)
-	}
-
-	tb.Cleanup(func() {
-		pool.Close()
-
-		t.mu.Lock()
-		defer t.mu.Unlock()
-
-		q := fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE);`, name)
-		_, err := t.conn.Exec(ctx, q)
-		if err != nil {
-			tb.Errorf("failed to drop database %q: %s", name, err)
-		}
-	})
-
-	db, err := NewDB(ctx, connUrl.String())
-	if err != nil {
-		tb.Fatalf("failed to create db :%s", err)
-	}
-
-	return db
-}
-
-func (t *testInstance) GetGolioClient() RiotClient {
-	return t.riotClient
-}
-
-func (t *testInstance) MustClose() {
-	err := t.Close()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
-}
-
-func (t *testInstance) Close() error {
+func (t *DBTest) Close() error {
 	err := t.conn.Close(context.Background())
 	if err != nil {
 		return err
@@ -219,6 +118,101 @@ func (t *testInstance) Close() error {
 	}
 
 	return nil
+}
+
+func (t *DBTest) MustClose() {
+	err := t.Close()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+}
+
+// Clones a new databse from the template, test will fatal on error
+func (t *DBTest) NewDatabase(tb testing.TB) (*DB) {
+	tb.Helper()
+
+	name, err := t.newDatabase()
+	if err != nil {
+		tb.Fatal(err)
+	}
+
+	url := t.url.ResolveReference(&url.URL{Path: name})
+	url.RawQuery = "sslmode=disable"
+
+	ctx := context.Background()
+	db, err := NewDB(ctx, url.String())
+	if err != nil {
+		tb.Fatalf("failed to create db :%s", err)
+	}
+
+	tb.Cleanup(func() {
+		db.Close()
+
+		ctx := context.Background()
+		t.mu.Lock()
+		defer t.mu.Unlock()
+
+		_, err := t.conn.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE);`, name))
+		if err != nil {
+			tb.Errorf("failed to drop database %q: %s", name, err)
+		}
+	})
+
+	return db
+}
+
+func (t *DBTest) NewConn(tb testing.TB) *pgx.Conn {
+	tb.Helper()
+
+	ctx := context.Background()
+
+	name, err := t.newDatabase()
+	if err != nil {
+		tb.Fatal(err)
+	}
+
+	url := t.url.ResolveReference(&url.URL{Path: name})
+	url.RawQuery = "sslmode=disable"
+
+	conn, err := pgx.Connect(ctx, url.String())
+	if err != nil {
+		tb.Fatalf("failed to connect db: %s", err)
+	}
+
+	tb.Cleanup(func() {
+		ctx := context.Background()
+
+		conn.Close(ctx)
+
+		t.mu.Lock()
+		defer t.mu.Unlock()
+
+		_, err := t.conn.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE);`, name))
+		if err != nil {
+			tb.Errorf("failed to drop database %q: %s", name, err)
+		}
+	})
+
+	return conn
+}
+
+func (t *DBTest) newDatabase() (string, error) {
+	name, err := randomDatabaseName()
+	if err != nil {
+		return "", fmt.Errorf("failed to create new database name: %w", err)
+	}
+
+	// postgres does not allow parallel database creation
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	_, err = t.conn.Exec(context.Background(), fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s";`, name, databaseName))
+	if err != nil {
+		return "", fmt.Errorf("failed to clone template database: %w", err)
+	}
+
+	return name, nil
 }
 
 func randomDatabaseName() (string, error) {

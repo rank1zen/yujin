@@ -11,11 +11,16 @@ import (
 	"github.com/rank1zen/yujin/pkg/logging"
 )
 
+var (
+	soloQueueType = 420
+	soloqOption   = lol.MatchListOptions{Queue: &soloQueueType}
+)
+
 type RiotClient interface {
 	GetSummoner(puuid string) (*lol.Summoner, error)
-	GetMatchlist(puuid string) ([]string, error)
-	GetMatch(matchId string) (*lol.Match, error)
-	GetLeagueBySummoner(summonerId string)  (*lol.LeagueItem, error)
+	GetMatchlist(puuid string, start int, count int) ([]string, error)
+	GetMatch(puuid string) (*lol.Match, error)
+	GetLeagueBySummoner(summonerId string) (*lol.LeagueItem, error)
 }
 
 type golioClient struct {
@@ -44,8 +49,8 @@ func (g *golioClient) GetMatch(matchId string) (*lol.Match, error) {
 	return g.golio.Riot.LoL.Match.Get(matchId)
 }
 
-func (g *golioClient) GetMatchlist(matchId string) ([]string, error) {
-	return nil, fmt.Errorf("no implemented")
+func (g *golioClient) GetMatchlist(puuid string, start int, count int) ([]string, error) {
+	return g.golio.Riot.LoL.Match.List(puuid, start, count, &soloqOption)
 }
 
 func (g *golioClient) GetLeagueBySummoner(summonerId string) (*lol.LeagueItem, error) {

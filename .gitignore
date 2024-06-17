@@ -1,2 +1,5 @@
 *.envrc
 db/migrations/tern.conf
+node_modules/
+Session.vim
+static/

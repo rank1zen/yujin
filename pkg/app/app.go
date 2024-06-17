@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os/signal"
 	"syscall"
 
@@ -14,38 +13,36 @@ import (
 )
 
 type App struct {
-	db database.DB
-	rc database.RiotClient
+	debug bool
+	db *database.DB
+	riot database.RiotClient
 }
 
-func (a *App) SetDatabase(db database.DB) { a.db = db }
-func (a *App) GetDatabase() database.DB   { return a.db }
+func NewApp() *App {
+	return &App{}
+}
 
-func (a *App) SetRiotClient(rc database.RiotClient) { a.rc = rc }
-func (a *App) GetGolioClient() database.RiotClient   { return a.rc }
+func (a *App) DebugMode() bool   { return a.debug }
+
+func (a *App) SetDatabase(db *database.DB) { a.db = db }
+func (a *App) GetDatabase() *database.DB   { return a.db }
+
+func (a *App) SetRiotClient(rc database.RiotClient) { a.riot = rc }
+func (a *App) GetGolioClient() database.RiotClient   { return a.riot }
 
 func (a *App) RunServer(ctx context.Context, port string) error {
-	log := logging.FromContext(ctx).Sugar()
-
 	srv, err := server.NewServer(port)
 	if err != nil {
 		return fmt.Errorf("failed to create http server: %w", err)
 	}
 
-	router := http.NewServeMux()
-	// sub route
-	handler, err := server.NewHandler(ctx, router, a)
+	mux, err := views.NewRouter(ctx, a)
 	if err != nil {
-		return fmt.Errorf("failed to create http handler: %w", err)
+		return fmt.Errorf("failed to create views handler: %w", err)
 	}
 
-	handler, err = views.NewHandler(ctx, router, a)
-	if err != nil {
-		return fmt.Errorf("failed to create http handler: %w", err)
-	}
-
-	log.Infof("serving on port: %s", port)
-	err = srv.ServeHTTPHandler(ctx, handler)
+	// log.Infof("serving on port: %s", port)
+	err = srv.ServeHTTPHandler(ctx, mux)
 	if err != nil {
 		return fmt.Errorf("failed to serve: %w", err)
 	}
@@ -64,10 +61,9 @@ func CmdRun() {
 	defer done()
 
 	log := logging.NewLogger().Sugar()
+	// TODO: Add build tags and build id and such
 
 	log.Infof("starting yujin...")
-
-	ctx = logging.WithContext(ctx, log.Desugar())
 
 	defer func() {
 		done()
@@ -77,26 +73,29 @@ func CmdRun() {
 		}
 	}()
 
+	ctx = logging.WithContext(ctx, log.Desugar())
+
 	var cfg Config
 	err := NewConfig(ctx, &cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	a := App{}
-	defer a.Close(ctx)
+	app := NewApp()
+	defer app.Close(ctx)
 
-	err = database.WithNewDB(ctx, &a, cfg.DatabaseURL)
+	err = database.WithNewDB(ctx, app, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to start the flipping DB %w", err)
 	}
 
-	database.WithNewGolioClient(ctx, &a, cfg.RiotApiKey)
+	database.WithNewGolioClient(ctx, app, cfg.RiotApiKey)
 
-	err = a.RunServer(ctx, cfg.Port)
+	err = app.RunServer(ctx, cfg.Port)
 	done()
+
 	if err != nil {
-		log.Fatalf("failed to start yujin: %v", err)
+		log.Fatalf("failed to start yujin: %w", err)
 	}
 
 	log.Infof("successful shutdown")

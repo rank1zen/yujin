@@ -3,46 +3,84 @@ package views
 import (
 	"net/http"
 
+	"fmt"
 	"github.com/rank1zen/yujin/pkg/components"
+	"strconv"
+
 	"github.com/rank1zen/yujin/pkg/database"
 )
 
-type profilesHandler struct {
-	db database.DB
-}
-
-func (s *profilesHandler) profile() http.HandlerFunc {
+func (s *handler) profile() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
+		w.Header().Set("Cache-Control", "no-store")
 		r.ParseForm()
 
 		puuid := r.FormValue("puuid")
-
-		// we should be getting the most recent one
 		summoner, err := s.db.Summoner().GetRecent(ctx, puuid)
 		if err != nil {
-			// TODO: how to handle errors?
+			return // TODO: how to handle errors?
 		}
 
 		soloq, err := s.db.League().GetRecentBySummoner(ctx, summoner.SummonerId)
 		if err != nil {
-			// TODO: how to handle errors?
+			return // TODO: how to handle errors?
 		}
 
-		_, err = s.db.Match().GetMatchlist(ctx, puuid)
+		matches, err := s.db.Match().GetMatchlist(ctx, puuid)
 		if err != nil {
-			// TODO: how to handle errors?
+			return // TODO: how to handle errors?
 		}
 
-		comp := components.ProfilePage(components.ProfilePageProps{
-			Profile: profileCard{
-				summoner: summoner,
-				rank: soloq,
-			},
-			Matchlist: make([]components.MatchCardProps, 0),
-		})
+		ad := make([]components.MatchCardProps, len(matches))
+		for i, m := range matches {
+			ad[i] = matchCard{
+				match: m,
+			}
+		}
 
-		comp.Render(ctx, w)
+		
+
+
+		props := components.ProfilePageProps{
+			Profile: ProfileCard{
+				Summoner:          summoner,
+				SummonerSoloqRank: soloq,
+			},
+			Matchlist: ad,
+		}
+		components.ProfilePage(props).Render(ctx, w)
 	}
+}
+
+type ProfileCard struct {
+	Summoner          database.SummonerRecord
+	SummonerSoloqRank database.LeagueRecord
+}
+
+func (p ProfileCard) IsRanked() bool { return true }
+func (p ProfileCard) LP() string     { return strconv.Itoa(int(p.SummonerSoloqRank.Lp)) }
+func (p ProfileCard) Level() string  { return strconv.Itoa(int(p.Summoner.SummonerLevel)) }
+func (p ProfileCard) Losses() string { return strconv.Itoa(int(p.SummonerSoloqRank.Losses)) }
+func (p ProfileCard) Name() string   { return "Summoner Name" } // FIXME
+func (p ProfileCard) ProfileIcon() string {
+	return "https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/champion/Jhin.png"
+}
+func (p ProfileCard) Rank() string { return p.SummonerSoloqRank.Rank }
+func (p ProfileCard) Tier() string { return p.SummonerSoloqRank.Tier }
+func (p ProfileCard) Wins() string { return strconv.Itoa(int(p.SummonerSoloqRank.Wins)) }
+
+type matchCard struct {
+	match       database.MatchInfoRecord
+	participant database.MatchParticipantRecord
+}
+
+func (m matchCard) Win() bool            { return true }
+func (m matchCard) GameDuration() string { return m.match.Duration.String() }
+func (m matchCard) GamePatch() string    { return m.match.Patch }
+func (m matchCard) GameDate() string     { return m.match.RecordDate.String() }
+func (m matchCard) CS() string           { return strconv.Itoa(m.participant.CreepScore) }
+func (m matchCard) KDA() string {
+	return fmt.Sprintf("%d / %d / %d", m.participant.Kills, m.participant.Deaths, m.participant.Assists)
 }

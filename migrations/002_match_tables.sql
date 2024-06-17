@@ -3,80 +3,90 @@
 CREATE TABLE MatchInfoRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
 	record_date TIMESTAMP NOT NULL,
-
-	match_id VARCHAR(64) UNIQUE NOT NULL,
+	match_id VARCHAR(64),
 	game_date TIMESTAMP NOT NULL,
-	game_duration INTERVAL,
-	game_patch VARCHAR(128)
+	game_duration INTERVAL NOT NULL,
+	game_patch VARCHAR(128),
+  UNIQUE (match_id)
 );
 
 CREATE TABLE MatchTeamRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords(match_id),
+	match_id VARCHAR(64),
 	team_id INT NOT NULL,
-	UNIQUE (match_id, team_id),
-
-    team_win BOOLEAN,
-    team_surrendered BOOLEAN,
-    team_early_surrendered BOOLEAN,
+  team_win BOOLEAN NOT NULL,
+  team_surrendered BOOLEAN NOT NULL,
+  team_early_surrendered BOOLEAN NOT NULL,
+  FOREIGN KEY (match_id) REFERENCES MatchInfoRecords (match_id),
+	UNIQUE (match_id, team_id)
 );
 
 CREATE TABLE MatchBanRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords(match_id),
-    team_id INT NOT NULL REFERENCES MatchTeamRecords(team_id),
-
-	champion_id INT,
-	turn INT
+	match_id VARCHAR(64),
+  team_id INT NOT NULL,
+	champion_id INT NOT NULL,
+	turn INT NOT NULL,
+  FOREIGN KEY (match_id) REFERENCES MatchInfoRecords (match_id),
+  FOREIGN KEY (match_id, team_id) REFERENCES MatchTeamRecords (match_id, team_id)
 );
 
 CREATE TABLE MatchObjectiveRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords (match_id),
-    team_id INT NOT NULL REFERENCES MatchTeamRecords(team_id),
-
-	name VARCHAR(128),
-	first BOOLEAN,
-	kills INT
+	match_id VARCHAR(64) NOT NULL,
+  team_id INT NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	first BOOLEAN NOT NULL,
+	kills INT NOT NULL,
+  FOREIGN KEY (match_id) REFERENCES MatchInfoRecords (match_id),
+  FOREIGN KEY (match_id, team_id) REFERENCES MatchTeamRecords (match_id, team_id)
 );
 
 CREATE TABLE MatchParticipantRecords (
-	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-	match_id VARCHAR(64) NOT NULL REFERENCES MatchRecords (match_id),
-	puuid VARCHAR(128) NOT NULL,
-	UNIQUE (match_id, puuid),
-
-	player_win BOOLEAN,
-	player_position VARCHAR(16),
-
-	kills INT,
-	deaths INT,
-	assists INT,
-	creep_score INT,
-	gold_earned INT,
-
-	champion_level      INT,
-	champion_id         INT
+  record_id UUID default uuid_generate_v4() PRIMARY KEY,
+  match_id VARCHAR(64),
+  puuid VARCHAR(128),
+  player_win BOOLEAN,
+  player_position VARCHAR(16),
+  kills INT,
+  deaths INT,
+  assists INT,
+  creep_score INT,
+  gold_earned INT,
+  champion_level INT,
+  champion_id INT,
+  FOREIGN KEY (match_id) REFERENCES MatchInfoRecords (match_id),
+  UNIQUE (match_id, puuid)
 );
 
 CREATE TABLE MatchRuneRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-
-    match_id VARCHAR(64) NOT NULL,
-    puuid VARCHAR(128) NOT NULL
+  match_id VARCHAR(64) REFERENCES MatchInfoRecords (match_id),
+  puuid VARCHAR(128),
+  FOREIGN KEY (match_id, puuid) REFERENCES MatchParticipantRecords (match_id, puuid)
 );
 
 CREATE TABLE MatchSummonerSpellRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  match_id VARCHAR(64) NOT NULL REFERENCES MatchInfoRecords(match_id),
+  puuid VARCHAR(128),
+  spell_slot INT,
+  spell_id INT,
+  FOREIGN KEY (match_id, puuid) REFERENCES MatchParticipantRecords (match_id, puuid)
+);
 
-    match_id VARCHAR(64) NOT NULL,
-    puuid VARCHAR(128) NOT NULL,
-    spell_id INT
+CREATE TABLE MatchItemRecords (
+  record_id UUID default uuid_generate_v4() PRIMARY KEY,
+  match_id VARCHAR(64) not null REFERENCES MatchInfoRecords (match_id),
+  puuid VARCHAR(128),
+  item_id INT,
+  item_slot INT,
+  FOREIGN KEY (match_id, puuid) REFERENCES MatchParticipantRecords (match_id, puuid)
 );
 
 ---- create above / drop below ----
 
-DROP TABLE MatchRecords;
+DROP TABLE MatchInfoRecords;
 DROP TABLE MatchTeamRecords;
 DROP TABLE MatchBanRecords;
 DROP TABLE MatchObjectiveRecords;
