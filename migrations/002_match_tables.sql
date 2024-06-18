@@ -2,7 +2,6 @@
 
 CREATE TABLE MatchInfoRecords (
 	record_id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-	record_date TIMESTAMP NOT NULL,
 	match_id VARCHAR(64),
 	game_date TIMESTAMP NOT NULL,
 	game_duration INTERVAL NOT NULL,

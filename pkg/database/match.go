@@ -202,7 +202,7 @@ type MatchCard struct {
 }
 
 // gets MatchInfo, MatchParticipant (just the player), and the all players items, runes, summoner spells
-func getPlayerHistory(ctx context.Context, db pgxDB, puuid string, start int, count int) ([]MatchCard, error) {
+func getPlayerMatchHistory(ctx context.Context, db pgxDB, puuid string, start int, count int) ([]MatchCard, error) {
 	rows, _ := db.Query(ctx, `
 	SELECT
 		m.match_id, m.game_date, m.game_duration, m.game_patch, p.player_win,
@@ -211,15 +211,15 @@ func getPlayerHistory(ctx context.Context, db pgxDB, puuid string, start int, co
 	FROM MatchInfoRecords AS m
 	INNER JOIN MatchParticipantRecords AS p ON m.match_id = p.match_id
 	WHERE p.puuid = $1
-	ORDER BY m.game_date
+	ORDER BY m.game_date DESC
 	OFFSET $2 LIMIT $3;
 	`, puuid, start, count)
 
 	return pgx.CollectRows(rows, pgx.RowToStructByNameLax[MatchCard])
 }
 
-// this is supposed to find new matches from riot not in the sysmtem
-func checkNewMatchlist(ctx context.Context, db pgxDB, riot RiotClient, puuid string) ([]string, error) {
+// Return new match ids from Riot
+func fetchMatchlist(ctx context.Context, db pgxDB, riot RiotClient, puuid string) ([]string, error) {
 	matchIDs, err := riot.GetMatchlist(puuid, 0, 10)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get matchlist ids from riot: %w", err)
@@ -253,70 +253,86 @@ func checkNewMatchlist(ctx context.Context, db pgxDB, riot RiotClient, puuid str
 	return newIDs, nil
 }
 
-func updateMatchlist(ctx context.Context, db pgxDB, riot RiotClient, puuid string) error {
+// Iterates over each id, fetches and inserts all match records, returns the inserted IDs
+// Batch insert, nothing is inserted in case of failure.
+// If the database has the match then we ignore
+func insertMatches(ctx context.Context, db pgxDB, riot RiotClient, matchIDs []string) ([]string, error) {
+	batch := &pgx.Batch{}
+	insertedIDs := make([]string, 0)
+
+	for _, id := range matchIDs {
+		var f bool
+		err := db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM MatchInfoRecords WHERE match_id = $1)`, id).Scan(&f)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check db: %w", err)
+		}
+
+		if f {
+			continue
+		}
+
+		m, err := riot.GetMatch(id)
+		if err != nil {
+			return nil, fmt.Errorf("failed: %s from riot: %w", id, err)
+		}
+
+		gameDate := time.Unix(m.Info.GameStartTimestamp, 0)
+		gameDuration := time.Duration(m.Info.GameDuration) * time.Millisecond
+
+		batch.Queue(`
+		INSERT INTO MatchInfoRecords
+		(match_id, game_date, game_duration, game_patch)
+		VALUES ($1, $2, $3, $4);
+		`, m.Metadata.MatchID, gameDate, gameDuration, m.Info.GameVersion)
+
+		for _, p := range m.Info.Participants {
+			batch.Queue(`
+			INSERT INTO MatchParticipantRecords
+			(match_id, puuid, player_win, player_position, kills,
+			deaths, assists, creep_score, gold_earned, champion_level,
+			champion_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+			`, m.Metadata.MatchID, p.PUUID, p.Win, p.Role, p.Kills,
+				p.Deaths, p.Assists, p.TotalMinionsKilled, p.GoldEarned, p.ChampLevel,
+				p.ChampionID)
+		}
+
+		for _, t := range m.Info.Teams {
+			batch.Queue(`
+			INSERT INTO MatchTeamRecords
+			(match_id, team_id, team_win, team_surrendered, team_early_surrendered)
+			VALUES ($1, $2, $3, $4, $5)
+			`, m.Metadata.MatchID, t.TeamID, t.Win, false, false) // FIXME
+		}
+
+		insertedIDs = append(insertedIDs, id)
+	}
+
+	br := db.SendBatch(ctx, batch)
+
+	_, err := br.Exec()
+	if err != nil {
+		return nil, fmt.Errorf("batch failed: %w", err)
+	}
+
+	return insertedIDs, nil
+}
+
+// Calls fetchMatchlist to fetches match history then call insertMatches on new ids
+func updateMatchHistory(ctx context.Context, db pgxDB, riot RiotClient, puuid string) ([]string, error) {
 	logger := logging.FromContext(ctx).Sugar()
 
-	newIDs, err := checkNewMatchlist(ctx, db, riot, puuid)
+	newIDs, err := fetchMatchlist(ctx, db, riot, puuid)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	logger.Debugf("fetching match ids: %v", newIDs)
 	// TODO: probably add some cancel mechanism here
-	err = insertMatches(ctx, db, riot, newIDs)
+	insertedIDs, err := insertMatches(ctx, db, riot, newIDs)
 	if err != nil {
-		return fmt.Errorf("failed to fetch each match: %w", err)
+		return nil, fmt.Errorf("failed to fetch each match: %w", err)
 	}
 
-	return nil
-}
-
-func insertMatches(ctx context.Context, db pgxDB, riot RiotClient, matchIDs []string) error {
-	return pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error {
-		for _, id := range matchIDs {
-			m, err := riot.GetMatch(id)
-			if err != nil {
-				return fmt.Errorf("failed: %s from riot: %w", id, err)
-			}
-
-			_, err = tx.Exec(ctx, `
-			INSERT INTO MatchInfoRecords
-			(match_id, game_date, game_duration, game_patch)
-			VALUES ($1, $2, $3, $4);
-			`, m.Metadata.MatchID, m.Info.GameStartTimestamp, m.Info.GameDuration,
-				m.Info.GameVersion)
-			if err != nil {
-				return err
-			}
-
-			for _, p := range m.Info.Participants {
-				_, err = tx.Exec(ctx, `
-				INSERT INTO MatchParticipantRecords
-				(match_id, puuid, player_win, player_position, kills,
-				deaths, assists, creep_score, gold_earned, champion_level,
-				champion_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
-				`, m.Metadata.MatchID, p.PUUID, p.Win, p.Role, p.Kills,
-					p.Deaths, p.Assists, p.PUUID, p.GoldEarned, p.ChampLevel,
-					p.ChampionID)
-				if err != nil {
-					return err
-				}
-			}
-
-			for _, t := range m.Info.Teams {
-				_, err = tx.Exec(ctx, `
-				INSERT INTO MatchTeamRecords
-				(match_id, team_id, team_win, team_surrendered, team_early_surrendered)
-				VALUES ($1, $2, $3, $4, $5)
-				`, m.Metadata.MatchID, t.TeamID, t.Win, false, false) // FIXME
-				if err != nil {
-					return err
-				}
-			}
-
-		}
-
-		return nil
-	})
+	return insertedIDs, nil
 }

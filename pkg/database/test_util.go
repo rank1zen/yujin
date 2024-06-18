@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 )
@@ -132,7 +133,7 @@ func (t *DBTest) MustClose() {
 func (t *DBTest) NewDatabase(tb testing.TB) (*DB) {
 	tb.Helper()
 
-	name, err := t.newDatabase()
+	name, err := t.cloneDatabase()
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -167,7 +168,7 @@ func (t *DBTest) NewConn(tb testing.TB) *pgx.Conn {
 
 	ctx := context.Background()
 
-	name, err := t.newDatabase()
+	name, err := t.cloneDatabase()
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -197,7 +198,43 @@ func (t *DBTest) NewConn(tb testing.TB) *pgx.Conn {
 	return conn
 }
 
-func (t *DBTest) newDatabase() (string, error) {
+func (t *DBTest) NewPool(tb testing.TB) *pgxpool.Pool {
+	tb.Helper()
+
+	ctx := context.Background()
+
+	name, err := t.cloneDatabase()
+	if err != nil {
+		tb.Fatal(err)
+	}
+
+	url := t.url.ResolveReference(&url.URL{Path: name})
+	url.RawQuery = "sslmode=disable"
+
+	pool, err := pgxpool.New(ctx, url.String())
+	if err != nil {
+		tb.Fatalf("failed to connect db: %s", err)
+	}
+
+	tb.Cleanup(func() {
+		ctx := context.Background()
+
+		pool.Close()
+
+		t.mu.Lock()
+		defer t.mu.Unlock()
+
+		_, err := t.conn.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE);`, name))
+		if err != nil {
+			tb.Errorf("failed to drop database %q: %s", name, err)
+		}
+	})
+
+	return pool
+}
+
+// returns name of a fresh cloned migrated db
+func (t *DBTest) cloneDatabase() (string, error) {
 	name, err := randomDatabaseName()
 	if err != nil {
 		return "", fmt.Errorf("failed to create new database name: %w", err)

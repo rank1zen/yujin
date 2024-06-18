@@ -16,6 +16,7 @@ type pgxDB interface {
 	Query(ctx context.Context, sql string, optionsAndArgs ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, optionsAndArgs ...any) pgx.Row
 	CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error)
+	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
 }
 
 type DB struct {
