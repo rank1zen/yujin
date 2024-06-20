@@ -9,6 +9,7 @@ import (
 	"github.com/KnutZuidema/golio/api"
 	"github.com/KnutZuidema/golio/riot/lol"
 	"github.com/rank1zen/yujin/pkg/logging"
+	"github.com/rank1zen/yujin/pkg/riot"
 )
 
 var (
@@ -18,19 +19,24 @@ var (
 
 type RiotClient interface {
 	GetSummoner(puuid string) (*lol.Summoner, error)
+	GetLeagueBySummoner(summonerId string) (*lol.LeagueItem, error)
 	GetMatchlist(puuid string, start int, count int) ([]string, error)
 	GetMatch(puuid string) (*lol.Match, error)
-	GetLeagueBySummoner(summonerId string) (*lol.LeagueItem, error)
 }
 
 type golioClient struct {
 	golio *golio.Client
 }
 
+func NewA() RiotClient {
+	var a riot.Client
+	return a
+}
+
 func NewGolioClient(ctx context.Context, apiKey string) RiotClient {
 	log := logging.FromContext(ctx).Sugar()
 
-	log.Infof("starting golio client...")
+	log.Infof("starting golio client")
 	return &golioClient{
 		golio: golio.NewClient(apiKey, golio.WithRegion(api.RegionNorthAmerica)),
 	}

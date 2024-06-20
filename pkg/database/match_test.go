@@ -19,8 +19,16 @@ func TestFetchMatchlist(t *testing.T) {
 	db := testDatabaseInstance.NewPool(t)
 
 	puuid := "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q"
+	req := NewMatchRequest{Puuid: puuid, Start: 0, Count: 4}
+
+	newIDs, err := fetchNewMatches(ctx, db, riot, req)
+	require.NoError(t, err)
+	require.Len(t, newIDs, req.Count)
+
 	first, err := updateMatchHistory(ctx, db, riot, puuid)
 	require.NoError(t, err)
+	require.Len(t, first, req.Count)
+
 	second, err := updateMatchHistory(ctx, db, riot, puuid)
 	if assert.NoError(t, err) {
 		assert.Less(t, len(second), len(first))

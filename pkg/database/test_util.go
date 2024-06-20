@@ -23,7 +23,8 @@ const (
 	databaseUser     = "test-user"
 	databasePassword = "testing123"
 
-	defaultPostgresImageRef = "postgres:13-alpine"
+	postgresImage = "postgres"
+	postgresTag   = "13-alpine"
 )
 
 type DBTest struct {
@@ -36,17 +37,18 @@ type DBTest struct {
 }
 
 func NewTestInstance() (*DBTest, error) {
-	// now we are for sure making the db
+	ctx := context.Background()
+
 	log.Printf("Connecting to Docker")
 	pool, err := dockertest.NewPool("")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Docker: %w", err)
 	}
 
-	log.Printf("Running Docker Container: %s:%s", "postgres", "alpine")
+	log.Printf("Running Docker Container: %s:%s", postgresImage, postgresTag)
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "postgres",
-		Tag:        "alpine",
+		Repository: postgresImage,
+		Tag:        postgresTag,
 		Env: []string{
 			"POSTGRES_DB=" + databaseName,
 			"POSTGRES_USER=" + databaseUser,
@@ -76,8 +78,6 @@ func NewTestInstance() (*DBTest, error) {
 	}
 
 	time.Sleep(5 * time.Second)
-
-	ctx := context.Background()
 
 	conn, err := pgx.Connect(ctx, connUrl.String())
 	if err != nil {
@@ -130,7 +130,7 @@ func (t *DBTest) MustClose() {
 }
 
 // Clones a new databse from the template, test will fatal on error
-func (t *DBTest) NewDatabase(tb testing.TB) (*DB) {
+func (t *DBTest) NewDatabase(tb testing.TB) *DB {
 	tb.Helper()
 
 	name, err := t.cloneDatabase()

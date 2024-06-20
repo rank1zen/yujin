@@ -19,6 +19,8 @@ func testingContext(tb testing.TB) context.Context {
 }
 
 func TestMain(m *testing.M) {
+	ctx := context.Background()
+
 	testDatabaseInstance = MustTestInstance()
 	defer testDatabaseInstance.MustClose()
 
@@ -27,7 +29,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	riot = NewGolioClient(context.Background(), apiKey)
+	riot = NewGolioClient(ctx, apiKey)
 
 	code := m.Run()
 	os.Exit(code)

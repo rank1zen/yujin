@@ -218,9 +218,15 @@ func getPlayerMatchHistory(ctx context.Context, db pgxDB, puuid string, start in
 	return pgx.CollectRows(rows, pgx.RowToStructByNameLax[MatchCard])
 }
 
+type NewMatchRequest struct {
+	Puuid string
+	Start int
+	Count int
+}
+
 // Return new match ids from Riot
-func fetchMatchlist(ctx context.Context, db pgxDB, riot RiotClient, puuid string) ([]string, error) {
-	matchIDs, err := riot.GetMatchlist(puuid, 0, 10)
+func fetchNewMatches(ctx context.Context, db pgxDB, riot RiotClient, req NewMatchRequest) ([]string, error) {
+	matchIDs, err := riot.GetMatchlist(req.Puuid, req.Start, req.Count)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get matchlist ids from riot: %w", err)
 	}
@@ -322,7 +328,7 @@ func insertMatches(ctx context.Context, db pgxDB, riot RiotClient, matchIDs []st
 func updateMatchHistory(ctx context.Context, db pgxDB, riot RiotClient, puuid string) ([]string, error) {
 	logger := logging.FromContext(ctx).Sugar()
 
-	newIDs, err := fetchMatchlist(ctx, db, riot, puuid)
+	newIDs, err := fetchNewMatches(ctx, db, riot, NewMatchRequest{Puuid: puuid})
 	if err != nil {
 		return nil, err
 	}
