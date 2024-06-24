@@ -4,81 +4,74 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rank1zen/yujin/pkg/logging"
+	"github.com/rank1zen/yujin/pkg/riot"
+	"go.opentelemetry.io/otel/trace"
 )
 
-// This is a wrapper for exclusivly pgx "QUERY" logic
-type pgxDB interface {
-	Begin(ctx context.Context) (pgx.Tx, error)
-	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
-	Query(ctx context.Context, sql string, optionsAndArgs ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, optionsAndArgs ...any) pgx.Row
-	CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error)
-	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
-}
-
-type zapTracer struct{}
-
-func (z *zapTracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
-	logger := logging.FromContext(ctx).Sugar()
-	logger.Debugf("Executing SQL: %s", data.SQL)
-	return ctx
-}
-
-func (z *zapTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
-	logger := logging.FromContext(ctx).Sugar()
-	logger.Debugf("The flip is a command tag: %v", data.CommandTag)
-}
-
+// DB represents all services for this web app
 type DB struct {
-	pgx *pgxpool.Pool
+	pool    *pgxpool.Pool
+	riot    *riot.Client
+	tracer  trace.Tracer
+	service *service
 }
 
 // NewDB creates and returns a new database from string
 func NewDB(ctx context.Context, url string) (*DB, error) {
-	pgxCfg, err := pgxpool.ParseConfig(url)
+	pool, err := newPgxPool(ctx, url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse postgres connection string: %w", err)
+		return nil, err
 	}
 
-	pgxCfg.BeforeAcquire = func(ctx context.Context, conn *pgx.Conn) bool {
-		return conn.Ping(ctx) == nil
-	}
+	riot := riot.NewClient()
 
-	tracer := zapTracer{}
-	pgxCfg.ConnConfig.Tracer = &tracer
-
-	pool, err := pgxpool.NewWithConfig(ctx, pgxCfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
-	}
-
-	err = pool.Ping(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
-	}
-
-	return &DB{pgx: pool}, nil
+	return &DB{
+		pool: pool,
+		riot: riot,
+		service: &service{
+			riot: riot,
+		},
+	}, nil
 }
 
-// WithNewDB creates a new database from string and attaches it to some allowing interface
-func WithNewDB(ctx context.Context, e interface{ SetDatabase(*DB) }, url string) error {
-	db, err := NewDB(ctx, url)
+type GetMatch func(ctx context.Context, puuid string, page int) ([]MatchPlayer, error)
+
+// GetMatchHistory gets from DB, the first 5 recent matches available
+func (db *DB) GetMatchHistory(ctx context.Context, puuid string, page int) ([]MatchPlayer, error) {
+	pagesize := 5
+	return db.service.getPlayerMatchHstory(ctx, db.pool, puuid, 5*page, pagesize)
+}
+
+// UpdateMatchHistory fetches and inserts the first 20 matches
+func (db *DB) UpdateMatchHistory(ctx context.Context, puuid string) error {
+	ids, err := db.service.fetchNewMatches(ctx, db.pool, puuid, 0, 20)
+	if err != nil {
+		return fmt.Errorf("fetch matches: %w", err)
+	}
+
+	_, err = db.service.insertMatches(ctx, db.pool, ids)
 	if err != nil {
 		return err
 	}
 
-	e.SetDatabase(db)
 	return nil
 }
 
-func (d *DB) Health(ctx context.Context) error {
-	return d.pgx.Ping(ctx)
+// TODO: implement
+func (db *DB) GetSummonerProfile(ctx context.Context, puuid string) (*SummonerProfile, error) {
+	return nil, nil
 }
 
-func (d *DB) Close() {
-	d.pgx.Close()
+// TODO: implement
+func (db *DB) FetchEntireMatchHistory(ctx context.Context, puuid string) error {
+	return nil
+}
+
+func (db *DB) Health(ctx context.Context) error {
+	return db.pool.Ping(ctx)
+}
+
+func (db *DB) Close() {
+	db.pool.Close()
 }

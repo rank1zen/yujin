@@ -2,74 +2,66 @@ package database
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
 
-	"github.com/rank1zen/yujin/pkg/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestFetchMatchlist(t *testing.T) {
+func TestMatchInsertCancelled(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(testingContext(t), 100*time.Millisecond)
+	defer cancel()
+
+	service, db := setup2(t)
+
+	_, err := service.insertMatches(ctx, db, []string{"NA1_5011055088"})
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func TestMatchInsert(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
+	defer cancel()
+
+	service, db := setup2(t)
+
+	for _, test := range []struct {
+		matchIDs []string
+		want     []string
+	}{
+		{
+			[]string{"NA1_5011055088"},
+			[]string{"NA1_5011055088"},
+		},
+		{
+			[]string{"NA1_5011055088"},
+			[]string{},
+		},
+	} {
+		got, err := service.insertMatches(ctx, db, test.matchIDs)
+		if assert.NoError(t, err) {
+			assert.Equal(t, test.want, got)
+		}
+	}
+}
+
+func TestGetMatchHistory(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
 	defer cancel()
 
 	db := testDatabaseInstance.NewPool(t)
+	repo := setup(t)
 
-	puuid := "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q"
-	req := NewMatchRequest{Puuid: puuid, Start: 0, Count: 4}
-
-	newIDs, err := fetchNewMatches(ctx, db, riot, req)
+	matchIDs := []string{"NA1_5011055088", "NA1_5011024569", "NA1_5011007618", "NA1_5003179356", "NA1_5003154869"}
+	_, err := repo.insertMatches(ctx, db, matchIDs)
 	require.NoError(t, err)
-	require.Len(t, newIDs, req.Count)
-
-	first, err := updateMatchHistory(ctx, db, riot, puuid)
-	require.NoError(t, err)
-	require.Len(t, first, req.Count)
-
-	second, err := updateMatchHistory(ctx, db, riot, puuid)
-	if assert.NoError(t, err) {
-		assert.Less(t, len(second), len(first))
-	}
-
-	// LewxuBYhgAt9KI1x8vSnmA63Kg3_hN8rabMVWzK06Zg6T-j1pz-gp4qtY4jOtMzNix90I3D2GylSCA
-}
-
-func TestMatchHistory(t *testing.T) {
-	t.Parallel()
-
-	ctx, cancel := context.WithTimeout(testingContext(t), 120*time.Second)
-	defer cancel()
-
-	db := testDatabaseInstance.NewPool(t)
-
-	matchIDs := [][]string{
-		{
-			"NA1_5011055088", "NA1_5011024569", "NA1_5011007618", "NA1_5003179356", "NA1_5003154869",
-			"NA1_5000922043", "NA1_4997891656", "NA1_4997274155", "NA1_4995777967", "NA1_4995159232",
-			"NA1_4994471478", "NA1_4993718318", "NA1_4993177950", "NA1_4993150709", "NA1_4993092016",
-			"NA1_4991698080", "NA1_4991095671", "NA1_4991079469", "NA1_4991062852", "NA1_4991033673",
-		},
-		{
-			"NA1_5021422737", "NA1_5021388717", "NA1_5021373818", "NA1_5020853384", "NA1_5020832606",
-			"NA1_5020810810", "NA1_5020057215", "NA1_5019976769", "NA1_5019955916", "NA1_5019933370",
-			"NA1_5019916474", "NA1_5019187873", "NA1_5019155528", "NA1_5019131994", "NA1_5019112396",
-			"NA1_5019109886", "NA1_5015788779", "NA1_5015769535", "NA1_5015755984", "NA1_5015740407",
-		},
-		{
-			"NA1_5021293538", "NA1_5021281021", "NA1_5021258185", "NA1_5021233370", "NA1_5020885153",
-			"NA1_5020853384", "NA1_5020820862", "NA1_5020781173", "NA1_5020759046", "NA1_5018964202",
-			"NA1_5018607928", "NA1_5018558505", "NA1_5016611779", "NA1_5016557236", "NA1_5016527451",
-			"NA1_5016501726", "NA1_5016471341", "NA1_5016446580", "NA1_5016427496", "NA1_5016404354",
-		},
-	}
-
-	for _, ids := range matchIDs {
-		_, err := insertMatches(ctx, db, riot, ids)
-		require.NoError(t, err)
-	}
 
 	for _, test := range []struct {
 		puuid string
@@ -80,23 +72,23 @@ func TestMatchHistory(t *testing.T) {
 		{
 			"0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q",
 			0,
-			20,
-			matchIDs[0],
+			5,
+			matchIDs,
 		},
 		{
 			"0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q",
 			1,
 			20,
-			matchIDs[0][1:],
+			matchIDs[1:],
 		},
 		{
 			"0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q",
 			0,
 			5,
-			matchIDs[0][:5],
+			matchIDs[:5],
 		},
 	} {
-		matches, err := getPlayerMatchHistory(ctx, db, test.puuid, test.start, test.count)
+		matches, err := repo.getPlayerMatchHstory(ctx, db, test.puuid, test.start, test.count)
 		got := make([]string, 0)
 		for _, m := range matches {
 			got = append(got, m.MatchId)
@@ -114,20 +106,27 @@ func TestMatchRecords(t *testing.T) {
 	ctx, cancel := context.WithTimeout(testingContext(t), 120*time.Second)
 	defer cancel()
 
-	logger := logging.FromContext(ctx).Sugar()
-
 	db := testDatabaseInstance.NewPool(t)
+	repo := setup(t)
 
 	ids := []string{"NA1_5011055088"}
-	puuid := "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q"
 
-	newIDs, err := insertMatches(ctx, db, riot, ids)
+	newIDs, err := repo.insertMatches(ctx, db, ids)
 	require.NoError(t, err)
 	require.Equal(t, ids, newIDs)
 
-	match, err := getPlayerMatchHistory(ctx, db, puuid, 0, 1)
-	require.NoError(t, err)
-	assert.Len(t, match, 1)
+	want := MatchInfo{
+		RecordId:     nil,
+		RecordDate:   nil,
+		MatchId:      "NA1_5011055088",
+		GameDate:     time.Date(2024, 6, 2, 0, 0, 0, 0, time.UTC),
+		GameDuration: 19*time.Minute + 25*time.Second,
+		GamePatch:    "14.11.589.9418",
+	}
 
-	logger.Info(match[0])
+	got, err := repo.getMatch(ctx, db, ids[0])
+	if assert.NoError(t, err) {
+		log.Println(got)
+		assert.Equal(t, want, *got)
+	}
 }

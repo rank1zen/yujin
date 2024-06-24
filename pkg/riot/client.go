@@ -2,86 +2,84 @@ package riot
 
 import (
 	"context"
-	"fmt"
-	"io"
+	"encoding/json"
 	"net/http"
+	"time"
+
+	"github.com/rank1zen/yujin/pkg/logging"
 )
 
 const (
-	apiURLFormat      = "%s://%s.%s%s"
-	baseURL           = "api.riotgames.com"
-	scheme            = "https"
-	apiTokenHeaderKey = "X-Riot-Token"
+	defaultNaBaseURL       = "https://na1.api.riotgames.com"
+	defaultAmerBaseURL     = "https://americas.api.riotgames.com"
+	defaultBaseURLTemplate = "https://%s.api.riotgames.com"
 )
 
-func NewRiotRequest(ctx context.Context, method, endpoint string, body io.Reader) (*http.Request, error) {
-	apiKey := "RGAPI-aa98b358-f286-4fb7-9f11-1d93d2cf198c"
-	region := "americas"
+type Client struct {
+	client      *http.Client
+	defaultOpts []RequestOption // TODO: we havent implemented this feat yet 
+}
 
-	url := fmt.Sprintf(apiURLFormat, scheme, region, baseURL, endpoint)
+func NewClient(opts ...RequestOption) *Client {
+	httpClient := &http.Client{
+		Timeout: 4 * time.Second,
+	}
 
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	return &Client{
+		client:      httpClient,
+		defaultOpts: opts,
+	}
+}
+
+func (c *Client) doRequest(ctx context.Context, req *Request) (*http.Response, error) {
+	logger := logging.FromContext(ctx).Sugar()
+
+	rq, err := req.HTTPRequest(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add(apiTokenHeaderKey, apiKey)
-	req.Header.Add("Accept", "application/json")
+	resp, err := c.client.Do(rq)
+	if err != nil {
+		select {
+		case <-ctx.Done():
+			logger.Debugf("context cancelled: %v", ctx.Err())
+			return nil, ctx.Err()
+		default:
+		}
 
-	return req, nil
-}
-
-type Doer interface {
-	Do(request *http.Request) (*http.Response, error)
-}
-
-type Client struct {
-	doer   Doer
-	apiKey string
-}
-
-func NewClient(doer Doer, apiKey string) *Client {
-	return &Client{
-		doer:   doer,
-		apiKey: apiKey,
+		logger.Debugf("interal client: %v", err)
+		return nil, err
 	}
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Debugf("http: %v at %v", resp.Status, req.url)
+
+		err, found := StatusToError[resp.StatusCode]
+		if !found {
+			return nil, Error{Message: "unknown status", StatusCode: resp.StatusCode}
+		}
+
+		return nil, err
+	}
+
+	return resp, nil
 }
 
-func (c *Client) GetMatchlist(ctx context.Context, puuid string, start int, count int) ([]string, error) {
-	return listByPuuid(ctx, nil, puuid, start, count)
+func (c *Client) Do(ctx context.Context, req *Request, dst any) error {
+	logger := logging.FromContext(ctx).Sugar()
+
+	resp, err := c.doRequest(ctx, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	err = json.NewDecoder(resp.Body).Decode(dst)
+	if err != nil {
+		logger.Debugf("failed to decode: %v", err)
+		return err
+	}
+
+	return err
 }
-
-func (c *Client) GetMatch(ctx context.Context, matchId string) (*MatchDto, error) {
-	return matchById(ctx, nil, matchId)
-}
-
-func (c *Client) GetMatchTimeline(ctx context.Context, matchID string) () { }
-
-// TODO: Gets entire match list
-func (c *Client) GetMatchlistFull(ctx context.Context, puuid string) (<-chan string, error) {
-	ch := make(chan string)
-	start, count := 0, 100
-
-	ids, err := listByPuuid(ctx, c.doer, puuid, start, count)
-	return ch, nil
-}
-
-type LeagueItem struct {
-	QueueType    string      `json:"queueType"`
-	SummonerName string      `json:"summonerName"`
-	HotStreak    bool        `json:"hotStreak"`
-	Wins         int         `json:"wins"`
-	Veteran      bool        `json:"veteran"`
-	Losses       int         `json:"losses"`
-	FreshBlood   bool        `json:"freshBlood"`
-	Inactive     bool        `json:"inactive"`
-	Tier         string      `json:"tier"`
-	Rank         string      `json:"rank"`
-	SummonerID   string      `json:"summonerId"`
-	LeaguePoints int         `json:"leaguePoints"`
-}
-
-func (c *Client) GetSummoner(ctx context.Context, puuid string) {}
-
-
-func (c *Client) GetSoloqRank(ctx context.Context, puuid string) {}

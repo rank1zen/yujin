@@ -211,7 +211,7 @@ func (t *DBTest) NewPool(tb testing.TB) *pgxpool.Pool {
 	url := t.url.ResolveReference(&url.URL{Path: name})
 	url.RawQuery = "sslmode=disable"
 
-	pool, err := pgxpool.New(ctx, url.String())
+	pool, err := newPgxPool(ctx, url.String())
 	if err != nil {
 		tb.Fatalf("failed to connect db: %s", err)
 	}

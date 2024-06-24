@@ -2,10 +2,7 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type LeagueRecord struct {
@@ -20,48 +17,16 @@ type LeagueRecord struct {
 	Losses     int32     `db:"number_losses"`
 }
 
-type LeagueQuery interface {
-	FetchAndInsertBySummoner(ctx context.Context, riot RiotClient, summonerId string) error
-	GetRecentBySummoner(ctx context.Context, summonerId string) (LeagueRecord, error)
-}
-
 type leagueQuery struct {
 	db pgxDB
 }
 
-func NewLeagueQuery(db pgxDB) LeagueQuery {
-	return &leagueQuery{db: db}
-}
-
-func (q *leagueQuery) FetchAndInsertBySummoner(ctx context.Context, riot RiotClient, summonerId string) error {
-	league, err := riot.GetLeagueBySummoner(summonerId)
-	if err != nil {
-		return fmt.Errorf("fetch: %w", err)
-	}
-
-	_, err = q.db.Exec(ctx, `
-	INSERT INTO LeagueRecords
-	(summoner_id, league_id, tier, division, league_points, number_wins, number_losses)
-	VALUES ($1, $2, $3, $4, $5, $6, $7);
-	`, league.SummonerID, league, league.Tier, league, league.Wins, league.Losses)
-	if err != nil {
-		return fmt.Errorf("insert: %w", err)
-	}
-
+// TODO: implement
+func (c *service) FetchAndInsertBySummoner(ctx context.Context, summonerId string) error {
 	return nil
 }
 
-func (q *leagueQuery) GetRecentBySummoner(ctx context.Context, summonerId string) (LeagueRecord, error) {
-	rows, _ := q.db.Query(ctx, `
-	SELECT t1.* 
-	FROM LeagueRecords AS t1
-	JOIN (
-		SELECT MAX(record_date) AS recent, puuid
-		FROM LeagueRecords
-		WHERE summoner_id = $1
-		GROUP BY puuid
-	) AS t2 ON t2.summoner_id = t1.summoner_id AND t2.recent = t1.record_date
-	WHERE t1.summoner_id = $1;
-	`, summonerId)
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[LeagueRecord])
+// TODO: implement
+func (c *service) GetRecentBySummoner(ctx context.Context, summonerId string) (*LeagueRecord, error) {
+	return nil, nil
 }

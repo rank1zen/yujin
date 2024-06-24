@@ -1,24 +1,23 @@
 package views
 
 import (
-	"net/http"
-
 	"fmt"
-	"github.com/rank1zen/yujin/pkg/components"
+	"net/http"
 	"strconv"
+
+	"github.com/rank1zen/yujin/pkg/components"
 
 	"github.com/rank1zen/yujin/pkg/database"
 )
 
-func (s *handler) profile() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (s *handler) profile() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		w.Header().Set("Cache-Control", "no-store")
 		r.ParseForm()
 
 		puuid := r.FormValue("puuid")
-		summoner, err := s.db.Summoner().GetRecent(ctx, puuid)
+		summoner, err := s.db.GetMatchHistory(ctx, puuid)
 		if err != nil {
 			return // TODO: how to handle errors?
 		}
@@ -40,9 +39,6 @@ func (s *handler) profile() http.HandlerFunc {
 			}
 		}
 
-		
-
-
 		props := components.ProfilePageProps{
 			Profile: ProfileCard{
 				Summoner:          summoner,
@@ -51,7 +47,7 @@ func (s *handler) profile() http.HandlerFunc {
 			Matchlist: ad,
 		}
 		components.ProfilePage(props).Render(ctx, w)
-	}
+	})
 }
 
 type ProfileCard struct {
