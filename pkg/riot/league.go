@@ -1,6 +1,9 @@
 package riot
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type LeagueItem struct {
 	QueueType    string `json:"queueType"`
@@ -19,6 +22,18 @@ type LeagueItem struct {
 
 // Get ranked soloq for a given summoner ID.
 // TODO: implement
+// https://developer.riotgames.com/apis#league-v4/GET_getLeagueEntriesForSummoner
 func (c *Client) GetSoloqRank(ctx context.Context, summonerID string) (*LeagueItem, error) {
+	panic("not implemented")
+	u := fmt.Sprintf(defaultNaBaseURL+"/lol/league/v4/entries/by-summoner/%v", summonerID)
+
+	req := NewRequest(WithToken2(), WithURL(u))
+
+	var a []LeagueItem
+	err := c.Do(ctx, req, &a)
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }

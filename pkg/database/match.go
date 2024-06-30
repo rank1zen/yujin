@@ -2,17 +2,17 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/rank1zen/yujin/pkg/riot"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type MatchInfo struct {
-	RecordId   *string    `db:"record_id"`
-	RecordDate *time.Time `db:"record_date"`
+	RecordId     *string       `db:"record_id"`
+	RecordDate   *time.Time    `db:"record_date"`
 	MatchId      string        `db:"match_id"`
 	GameDate     time.Time     `db:"game_date"`
 	GameDuration time.Duration `db:"game_duration"`
@@ -145,7 +145,6 @@ type PlayerSpellRecord struct {
 	SpellID   int
 }
 
-
 type MatchRuneRecord struct {
 	RecordId string `db:"record_id"`
 	MatchId  string `db:"match_id"`
@@ -167,20 +166,6 @@ type MatchParticipantRecord struct {
 	Level    int    `db:"level"`
 }
 
-type MatchPlayer struct {
-	MatchInfo
-	PlayerMetaInfo
-	PlayerStats
-
-	Items []int // should have 6 items
-
-	SummonerSpell1ID int
-	SummonerSpell2ID int
-
-	RunePrimaryID   int
-	RuneSecondaryID int
-}
-
 type MatchObjectiveRecord struct {
 	RecordId string `db:"record_id"`
 	MatchId  string `db:"match_id"`
@@ -198,35 +183,194 @@ type MatchBanRecord struct {
 	BanTurn       int    `db:"turn"`
 }
 
-type service struct {
-	riot   *riot.Client
-	tracer trace.Tracer
-}
-
-// gets MatchInfo, MatchParticipant (just the player), and the all players items, runes, summoner spells
-func (s *service) getPlayerMatchHstory(ctx context.Context, db pgxDB, puuid string, start, count int) ([]MatchPlayer, error) {
-	rows, _ := db.Query(ctx, `
-	SELECT
-		m.match_id, m.game_date, m.game_duration, m.game_patch, p.player_win,
-		p.player_position, p.kills, p.deaths, p.assists, p.creep_score,
-		p.champion_level, p.champion_id
-	FROM MatchInfoRecords AS m
-	INNER JOIN MatchParticipantRecords AS p ON m.match_id = p.match_id
-	WHERE p.puuid = $1
-	ORDER BY m.game_date DESC
-	OFFSET $2 LIMIT $3;
-	`, puuid, start, count)
-
-	matchPlayer, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[MatchPlayer])
+// UpdateMatchHistory fetches and inserts the most recent 10 matches
+func (db *DB) UpdateMatchHistory(ctx context.Context, puuid string) ([]*MatchPlayer, error) {
+	ids, err := db.riot.GetMatchHistory(ctx, puuid, 0, 10)
 	if err != nil {
 		return nil, err
 	}
 
-	return matchPlayer, nil
+	matches, err := db.getMatchListPlayer(ctx, puuid, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	return matches, nil
 }
 
-func (s *service) getMatch(ctx context.Context, db pgxDB, matchID string) (*MatchInfo, error) {
-	rows, _ := db.Query(ctx, `
+// GetMatchHistory fetches and inserts by page of 5 items
+func (db *DB) GetMatchHistory(ctx context.Context, puuid string, page int) ([]*MatchPlayer, error) {
+	start, count := 5*page, 5
+	ids, err := db.riot.GetMatchHistory(ctx, puuid, start, count)
+	if err != nil {
+		return nil, err
+	}
+
+	matches, err := db.getMatchListPlayer(ctx, puuid, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	return matches, nil
+}
+
+// getMatchListPlayer fetches each match corresponding to each matchIDs.
+// Calls the Riot API and inserts matches as needed.
+// Batch insert, nothing is inserted in case of failure.
+// NOTE: This is currently not in transaction
+func (db *DB) getMatchListPlayer(ctx context.Context, puuid string, matchIDs []string) ([]*MatchPlayer, error) {
+	matches := make([]*MatchPlayer, len(matchIDs))
+
+	for i, id := range matchIDs {
+		match, err := db.getMatchPlayer(ctx, puuid, id)
+		if err != nil {
+			return nil, fmt.Errorf("failed %s: %w", id, err)
+		}
+		matches[i] = match
+	}
+
+	return matches, nil
+}
+
+func (db *DB) getMatchPlayer(ctx context.Context, puuid, matchID string) (*MatchPlayer, error) {
+	batch := new(pgx.Batch)
+
+	sql := `
+	SELECT
+		match_id, game_date, game_duration, game_patch,
+		player_win, player_position, kills, deaths, assists, creep_score, champion_level, champion_id,
+		items_arr,
+		spells_arr
+	FROM match_participant_simple
+	WHERE match_id = $1 and puuid = $2;
+	`
+
+	row, _ := db.pool.Query(ctx, sql, matchID, puuid)
+	match, err := pgx.CollectExactlyOneRow(row, pgx.RowToAddrOfStructByNameLax[MatchPlayer])
+
+	var riotMatch *riot.Match
+
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		riotMatch, err = db.riot.GetMatch(ctx, matchID)
+		if err != nil {
+			return nil, fmt.Errorf("failed %s: %w", matchID, err)
+		}
+	case err != nil:
+		return nil, fmt.Errorf("failed to check db: %w", err)
+	default:
+		return match, nil
+	}
+
+	batchMatch(batch, riotMatch)
+	batch.Queue(sql, matchID, puuid)
+
+	batchRes := db.pool.SendBatch(ctx, batch)
+	defer batchRes.Close()
+
+	for range batch.Len() - 1 {
+		tag, err := batchRes.Exec()
+
+		if err != nil {
+			return nil, fmt.Errorf("batch insert: %v %w", tag, err)
+		}
+	}
+
+	row, _ = batchRes.Query()
+	match, err = pgx.CollectExactlyOneRow(row, pgx.RowToAddrOfStructByNameLax[MatchPlayer])
+	if err != nil {
+		return nil, fmt.Errorf("select: %w", err)
+	}
+
+	return match, nil
+}
+
+func batchMatch(batch *pgx.Batch, m *riot.Match) {
+	matchID := m.Metadata.MatchId
+
+	var sql string
+	var args []any
+
+	sql, args = matchInfoQuery(m)
+	batch.Queue(sql, args...)
+
+	for _, p := range m.Info.Participants {
+		sql, args = matchParticipantQuery(matchID, p)
+		batch.Queue(sql, args...)
+		sql, args = matchItemQuery(matchID, p)
+		batch.Queue(sql, args...)
+		sql, args = matchSummonerSpellQuery(matchID, p)
+		batch.Queue(sql, args...)
+	}
+
+	for _, t := range m.Info.Teams {
+		sql, args = matchTeamQuery(matchID, t)
+		batch.Queue(sql, args...)
+		sql, args = matchObjectiveQuery(matchID, t)
+		batch.Queue(sql, args...)
+
+		for _, ban := range t.Bans {
+			sql, args = matchBanQuery(matchID, t.TeamId, ban)
+			batch.Queue(sql, args...)
+		}
+	}
+}
+
+type MatchPlayer struct {
+	MatchInfo
+	PlayerMetaInfo
+	PlayerStats
+
+	// should have 6 items
+	Items []int `db:"items_arr"`
+
+	SummonerSpell []int `db:"spells_arr"`
+
+	RunePrimaryID   int
+	RuneSecondaryID int
+}
+
+func (m MatchPlayer) GetGameDate() string {
+	return m.GameDate.String()
+}
+
+func (m MatchPlayer) GetGameDuration() string {
+	return m.GameDuration.String()
+}
+
+func (m MatchPlayer) GetCreepScore() string {
+	return "198"
+}
+
+func (m MatchPlayer) GetKDA() string {
+	return fmt.Sprintf("%d/%d/%d", m.Kills, m.Deaths, m.Assists)
+}
+
+func (m MatchPlayer) GetKillDeathRatio() string {
+	return fmt.Sprintf("%d", m.Kills+m.Assists/m.Deaths)
+}
+
+func (m MatchPlayer) GetChampionIconUrl() string {
+	return "https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/champion/Jhin.png"
+}
+
+func (m MatchPlayer) GetItemIconUrls() []string {
+	return []string{
+		"https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/spell/SummonerFlash.png",
+		"https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/spell/SummonerFlash.png",
+		"https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/spell/SummonerFlash.png",
+		"https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/spell/SummonerFlash.png",
+		"https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/spell/SummonerFlash.png",
+		"https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/spell/SummonerFlash.png",
+	}
+}
+
+func (m MatchPlayer) Valid() bool {
+	return true
+}
+
+func (db *DB) getMatch(ctx context.Context, matchID string) (*MatchInfo, error) {
+	rows, _ := db.pool.Query(ctx, `
 	SELECT match_id, m.game_date, m.game_duration, m.game_patch
 	FROM MatchInfoRecords AS m
 	WHERE m.match_id = $1;
@@ -240,17 +384,18 @@ func (s *service) getMatch(ctx context.Context, db pgxDB, matchID string) (*Matc
 	return match, nil
 }
 
+// This is probably dead
 // Return new match ids (matches not currently in db) from Riot
 //
 // TODO: This could be made infinitely better
-func (r *service) fetchNewMatches(ctx context.Context, db pgxDB, puuid string, start, count int) ([]string, error) {
-	matchIDs, err := r.riot.GetMatchHistory(ctx, puuid, start, count)
+func (db *DB) fetchNewMatches(ctx context.Context, puuid string, start, count int) ([]string, error) {
+	matchIDs, err := db.riot.GetMatchHistory(ctx, puuid, start, count)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get matchlist ids from riot: %w", err)
 	}
 
-	rows, err := db.Query(ctx, `
-		SELECT match_id FROM MatchInfoRecords WHERE match_id = ANY ($1);
+	rows, err := db.pool.Query(ctx, `
+		SELECT match_id FROM match_info_records WHERE match_id = ANY ($1);
 	`, matchIDs)
 	if err != nil {
 		return nil, fmt.Errorf("something went wrong with sql query: %w", err)
@@ -275,88 +420,4 @@ func (r *service) fetchNewMatches(ctx context.Context, db pgxDB, puuid string, s
 	}
 
 	return newIDs, nil
-}
-
-// Iterates over each id, fetches and inserts all match records, returns the inserted IDs.
-//
-// Batch insert, nothing is inserted in case of failure.
-// If the database has the match then we ignore.
-func (s *service) insertMatches(ctx context.Context, db pgxDB, matchIDs []string) ([]string, error) {
-	batch := new(pgx.Batch)
-	insertedIDs := make([]string, 0)
-
-	for _, id := range matchIDs {
-		var f bool
-		err := db.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM MatchInfoRecords WHERE match_id = $1)
-		`, id).Scan(&f) // NOTE: This is kinda doo doo
-		if err != nil {
-			return nil, fmt.Errorf("failed to check db: %w", err)
-		}
-
-		if f {
-			continue
-		}
-
-		m, err := s.riot.GetMatch(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("failed fetching %s: %w", id, err)
-		}
-
-		batchMatch(batch, m)
-
-		insertedIDs = append(insertedIDs, id)
-	}
-
-	br := db.SendBatch(ctx, batch)
-	defer br.Close()
-
-	for range batch.Len() {
-		_, err := br.Exec()
-		if err != nil {
-			return nil, fmt.Errorf("query failed: %w", err)
-		}
-	}
-
-	return insertedIDs, nil
-}
-
-// NOTE: When we get further along, we some fields will be missing and we have to adjust gameDuration
-// since that will be in millisecs
-func batchMatch(batch *pgx.Batch, m *riot.Match) {
-	matchID := m.Metadata.MatchId
-	// NOTE: the end time of a game should be the max time played of any player, check docs bro
-	gameDate := time.Unix(m.Info.GameStartTimestamp / 1000, 0)
-	gameDuration := time.Duration(m.Info.GameDuration) * time.Second // p sure this is correct
-
-	batch.Queue(`
-	INSERT INTO MatchInfoRecords
-	(match_id, game_date, game_duration, game_patch)
-	VALUES ($1, $2, $3, $4);
-	`, matchID, gameDate, gameDuration, m.Info.GameVersion)
-
-	for _, p := range m.Info.Participants {
-		batch.Queue(`
-		INSERT INTO MatchParticipantRecords
-		(match_id, puuid, player_win, player_position, kills,
-		deaths, assists, creep_score, gold_earned, champion_level,
-		champion_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
-		`,
-			matchID, p.PUUID, p.Win, p.Role, p.Kills,
-			p.Deaths, p.Assists, p.TotalMinionsKilled, p.GoldEarned, p.ChampLevel,
-			p.ChampionID,
-		)
-	}
-
-	// FIXME: team surrender fields
-	for _, t := range m.Info.Teams {
-		batch.Queue(`
-	INSERT INTO MatchTeamRecords
-	(match_id, team_id, team_win, team_surrendered, team_early_surrendered)
-	VALUES ($1, $2, $3, $4, $5)
-	`,
-			matchID, t.TeamId, t.Win, false, false,
-		)
-	}
 }

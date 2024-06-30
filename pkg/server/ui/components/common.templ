@@ -1,0 +1,52 @@
+package components
+
+templ base(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<link rel="stylesheet" href="/static/css/styles.css"/>
+			<script src="https://unpkg.com/htmx.org@2.0.0" integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw" crossorigin="anonymous"></script>
+			<title>{ title }</title>
+		</head>
+		<body>
+			<div>
+				<div>
+					<div class="sticky top-0 z-40 w-full flex-none bg-neutral-200">
+						<div class="mx-auto max-w-screen-xl">
+							<div class="py-4 shadow-sm">
+								<div class="flex items-center justify-center">
+									<div class="">
+										<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/small-perk-images/Styles/Domination/DarkHarvest/DarkHarvest.png" class="overflow-hidden"/>
+									</div>
+									<nav class="text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
+										<ul class="flex space-x-4">
+											<li>
+												<a href="#" class="hover:text-sky-500 dark:hover:text-sky-400">YUJIN</a>
+											</li>
+											<li>
+												<a href="#" class="hover:text-sky-500 dark:hover:text-sky-400">Profile</a>
+											</li>
+											<li>
+												<a href="#" class="hover:text-sky-500 dark:hover:text-sky-400">Stats</a>
+											</li>
+											<li>
+												<a href="#" class="hover:text-sky-500 dark:hover:text-sky-400">Other</a>
+											</li>
+										</ul>
+									</nav>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div>
+					<main>
+						{ children... }
+					</main>
+				</div>
+			</div>
+		</body>
+	</html>
+}

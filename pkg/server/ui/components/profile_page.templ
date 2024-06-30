@@ -1,0 +1,21 @@
+package components
+
+import "github.com/rank1zen/yujin/pkg/database"
+
+templ ProfilePage(page database.ProfilePage) {
+	@base(page.SummonerName) {
+		@profilePage(page)
+	}
+}
+
+templ profilePage(page database.ProfilePage) {
+	<div>
+		<div class="flex">
+			<div>
+				<img src={ page.ProfilePageUrl() }/>
+			</div>
+			<h1 class="text-6xl">{ page.SummonerName }</h1>
+		</div>
+		@MatchCardList(page.Matchlist)
+	</div>
+}

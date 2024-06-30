@@ -14,7 +14,6 @@ type DB struct {
 	pool    *pgxpool.Pool
 	riot    *riot.Client
 	tracer  trace.Tracer
-	service *service
 }
 
 // NewDB creates and returns a new database from string
@@ -29,43 +28,47 @@ func NewDB(ctx context.Context, url string) (*DB, error) {
 	return &DB{
 		pool: pool,
 		riot: riot,
-		service: &service{
-			riot: riot,
-		},
 	}, nil
 }
 
-type GetMatch func(ctx context.Context, puuid string, page int) ([]MatchPlayer, error)
+type SummonerProfile struct{}
 
-// GetMatchHistory gets from DB, the first 5 recent matches available
-func (db *DB) GetMatchHistory(ctx context.Context, puuid string, page int) ([]MatchPlayer, error) {
-	pagesize := 5
-	return db.service.getPlayerMatchHstory(ctx, db.pool, puuid, 5*page, pagesize)
+type ProfilePage struct {
+	SummonerName  string
+	SummonerLevel int
+	Matchlist     []*MatchPlayer
+	ProfileIconId int
 }
 
-// UpdateMatchHistory fetches and inserts the first 20 matches
-func (db *DB) UpdateMatchHistory(ctx context.Context, puuid string) error {
-	ids, err := db.service.fetchNewMatches(ctx, db.pool, puuid, 0, 20)
+func (p ProfilePage) ProfilePageUrl() string {
+	return "https://static.bigbrain.gg/assets/lol/riot_static/14.10.1/img/champion/Jhin.png"
+}
+
+func (p ProfilePage) IsRanked() bool {
+	return false
+}
+
+func (db *DB) ProfilePage(ctx context.Context, puuid string) (*ProfilePage, error) {
+	page := new(ProfilePage)
+
+	err := db.pool.QueryRow(ctx, `
+	SELECT
+		profile_icon_id, summoner_level, 'Temp Name'
+	FROM summoner_records_newest
+	WHERE puuid = $1;
+	`, puuid).Scan(page.ProfileIconId, page.SummonerLevel, page.SummonerName)
 	if err != nil {
-		return fmt.Errorf("fetch matches: %w", err)
+		return nil, fmt.Errorf("no %w", err)
 	}
 
-	_, err = db.service.insertMatches(ctx, db.pool, ids)
+	matchlist, err := db.UpdateMatchHistory(ctx, puuid)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
-}
+	page.Matchlist = matchlist
 
-// TODO: implement
-func (db *DB) GetSummonerProfile(ctx context.Context, puuid string) (*SummonerProfile, error) {
-	return nil, nil
-}
-
-// TODO: implement
-func (db *DB) FetchEntireMatchHistory(ctx context.Context, puuid string) error {
-	return nil
+	return page, nil
 }
 
 func (db *DB) Health(ctx context.Context) error {

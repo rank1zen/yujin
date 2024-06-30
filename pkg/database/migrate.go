@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/tern/v2/migrate"
 )
 
-func dbMigrate(ctx context.Context, conn *pgx.Conn) error {
+func DBMigrate(ctx context.Context, conn *pgx.Conn) error {
 	migrator, err := migrate.NewMigrator(ctx, conn, "public.schema_version")
 	if err != nil {
 		return fmt.Errorf("could not create migrator: %w", err)

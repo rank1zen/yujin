@@ -9,7 +9,16 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rank1zen/yujin/pkg/logging"
+	"go.uber.org/zap"
 )
+
+type queryer interface {
+	Query(ctx context.Context, sql string, optionsAndArgs ...any) (pgx.Rows, error)
+}
+
+type execer interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}
 
 // This is a wrapper for exclusivly pgx "QUERY" logic
 type pgxDB interface {
@@ -56,21 +65,23 @@ func (z *zapTracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pg
 	logger := logging.FromContext(ctx).Sugar()
 
 	q := strings.Join(strings.Fields(data.SQL), " ")
-	logger.Debugf("query start: %.20s", q)
+	logger.Debugf("query: %.20s", q)
 
 	return ctx
 }
 
 func (z *zapTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
 	logger := logging.FromContext(ctx).Sugar()
-
-	logger.Debugf("The flip is a command tag: %v", data.CommandTag)
+	if data.Err != nil {
+		logger.Debugf("%v: %v", data.CommandTag, data.Err)
+	}
 }
 
 func (z *zapTracer) TraceBatchStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchStartData) context.Context {
+	ctx = logging.WithFields(ctx, zap.String("mode", "batch"))
 	logger := logging.FromContext(ctx).Sugar()
 
-	logger.Debugf("batch start queued: %v", data.Batch.Len())
+	logger.Debugf("%v queued", data.Batch.Len())
 
 	return ctx
 }
@@ -78,12 +89,11 @@ func (z *zapTracer) TraceBatchStart(ctx context.Context, conn *pgx.Conn, data pg
 func (z *zapTracer) TraceBatchQuery(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchQueryData) {
 	logger := logging.FromContext(ctx).Sugar()
 
-	q := strings.Join(strings.Fields(data.SQL), " ")
-	logger.Debugf("batch query done: %.20s", q)
+	if data.Err != nil {
+		sql := strings.Fields(data.SQL)
+		logger.Debugf("%v: %v", sql[:4], data.Err)
+	}
 }
 
 func (z *zapTracer) TraceBatchEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchEndData) {
-	logger := logging.FromContext(ctx).Sugar()
-
-	logger.Debugf("batch done: %v", data.Err)
 }

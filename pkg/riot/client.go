@@ -22,7 +22,7 @@ type Client struct {
 
 func NewClient(opts ...RequestOption) *Client {
 	httpClient := &http.Client{
-		Timeout: 4 * time.Second,
+		Timeout: 15 * time.Second,
 	}
 
 	return &Client{
@@ -53,7 +53,7 @@ func (c *Client) doRequest(ctx context.Context, req *Request) (*http.Response, e
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		logger.Debugf("http: %v at %v", resp.Status, req.url)
+		logger.Debugf("http: %v %v", resp.Status, req.url)
 
 		err, found := StatusToError[resp.StatusCode]
 		if !found {

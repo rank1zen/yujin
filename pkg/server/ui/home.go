@@ -1,12 +1,12 @@
-package views
+package ui
 
 import (
 	"net/http"
 
-	"github.com/rank1zen/yujin/pkg/components"
+	"github.com/rank1zen/yujin/pkg/server/ui/components"
 )
 
-func (s *handler) home() http.HandlerFunc {
+func (ui *ui) home() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		page := components.HomePage()

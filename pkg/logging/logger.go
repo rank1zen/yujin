@@ -7,9 +7,11 @@ import (
 	"os"
 	"runtime/debug"
 	"sync"
+	"testing"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 )
 
 // TODO: there are some clever things we can do with logging and embedded interfaces
@@ -94,4 +96,22 @@ func WithContext(ctx context.Context, lg *zap.Logger) context.Context {
 	}
 
 	return context.WithValue(ctx, ctxKey{}, lg)
+}
+
+func WithFields(ctx context.Context, fields ...zap.Field) context.Context {
+	logger := FromContext(ctx).With(fields...)
+	return WithContext(ctx, logger)
+}
+
+func NewTestLogger(tb testing.TB) *zap.Logger {
+	// opts := []zaptest.LoggerOption{
+	// 	zaptest.Level(zap.DebugLevel),
+	// }
+
+	return zaptest.NewLogger(tb)
+}
+
+func testingContext(tb testing.TB) context.Context {
+	ctx := context.Background()
+	return WithContext(ctx, NewTestLogger(tb))
 }
