@@ -1,0 +1,55 @@
+package pages
+
+import "strconv"
+
+templ ProfileNotFoundErrorPage() {
+	@base("uh oh!") {
+		<section>
+			This summoner is not found.
+		</section>
+	}
+}
+
+templ ServerError(err error) {
+	@base("uh oh!") {
+		<section class="flex items-center">
+			<div class="flex bg-red-100">
+				<h1 class="text-xl">Something when wrong!</h1>
+				<p>{ err.Error() } </p>
+			</div>
+		</section>
+	}
+}
+
+// Use this one please
+templ ServerError2(code int, status string) {
+	@base("uh oh!") {
+		<section class="flex items-center h-full p-16">
+			<div class="container flex flex-col items-center justify-centera px-5 mx-auto my-8">
+				<div class="d">
+					<h2 class="mb-8 font-extrabold text-9xl">
+						<span class="sr-only">Error</span>
+						{ strconv.Itoa(code) }
+					</h2>
+					<p class="text-2xl font-semibold md:text-3xl">{ status }</p>
+				</div>
+			</div>
+		</section>
+	}
+}
+
+templ ErrorNotFound() {
+	@base("uh oh!") {
+		<section class="flex items-center h-full p-16">
+			<div class="container flex flex-col items-center justify-centera px-5 mx-auto my-8">
+				<div class="d">
+					<h2 class="mb-8 font-extrabold text-9xl">
+						<span class="sr-only">Error</span>
+						404
+					</h2>
+					<p class="text-2xl font-semibold md:text-3xl">Sorry, we couldn't find this page.</p>
+				</div>
+			</div>
+		</section>
+	}
+}

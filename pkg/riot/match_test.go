@@ -1,9 +1,15 @@
 package riot
 
 import (
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	AndrewPUUID       = "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q"
+	AndrewAsheMatchID = "NA1_5003179356"
 )
 
 func TestMatch_List(t *testing.T) {
@@ -13,7 +19,7 @@ func TestMatch_List(t *testing.T) {
 
 	client := setup(t)
 
-	ids, err := client.GetMatchHistory(ctx, "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q", 0, 5)
+	ids, err := client.GetMatchHistory(ctx, AndrewPUUID, 0, 5)
 	if assert.NoError(t, err) {
 		assert.Len(t, ids, 5)
 	}
@@ -46,5 +52,18 @@ func TestMatch_GetMatch(t *testing.T) {
 		assert.Equal(t, want.GameDuration, m.Info.GameDuration)
 		assert.Equal(t, want.GameVersion, m.Info.GameVersion)
 		assert.Equal(t, want.PlatformId, m.Info.PlatformId)
+	}
+}
+
+func TestMatch_GetMatchTimeline(t *testing.T) {
+	t.Parallel()
+
+	ctx := testingContext(t)
+
+	client := setup(t)
+
+	m, err := client.GetMatchTimeline(ctx, AndrewAsheMatchID)
+	if assert.NoError(t, err) {
+		log.Print(len(m.Info.Frames))
 	}
 }

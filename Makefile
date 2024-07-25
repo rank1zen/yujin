@@ -1,5 +1,5 @@
 templ:
-	@templ generate
+	@templ generate --watch
 
 tailwind:
 	@npx tailwindcss -i tailwind.css -o ./static/css/styles.css

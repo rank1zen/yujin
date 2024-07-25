@@ -1,0 +1,219 @@
+package partials
+
+import "github.com/rank1zen/yujin/pkg/database"
+import "fmt"
+
+templ ProfileMatchlist(matches *database.ProfileMatchListPage) {
+	<ul class="flex flex-col gap-2 w-[40rem]">
+		if matches.Count > 0 {
+			for i := range matches.Count {
+				<li class="">
+					@matchCard(matches.Matches[i])
+				</li>
+			}
+			if matches.HasMore() {
+				<li
+					hx-get={ fmt.Sprintf("/profile/%s/matchlist?page=%d", matches.Name.String(), matches.Page+1) }
+					hx-trigger="revealed"
+					hx-swap="afterend"
+				></li>
+			} else {
+				<li>
+					This is the end of the List!
+				</li>
+			}
+		} else {
+			<div>No Matches Found!</div>
+		}
+	</ul>
+}
+
+// TODO: We can add different types of errors if we want
+templ ProfileMatchlistError() {
+	<div class="container flex flex-col items-center justify-center px-5 mx-auto my-8">
+		<img src="https://fonts.gstatic.com/s/i/materialicons/error_outline/v6/24px.svg"/>
+	</div>
+}
+
+templ ProfileMatchSummary(m *database.ProfileMatchSummary) {
+	<div class="">
+		<div class="bg-red-50">
+			<table class="table-fixed text-sm">
+				<thead class="">
+					<tr>
+						<th class="pb-4 pl-10 text-left">Defeat (Blue Side)</th>
+						<th>KDA</th>
+						<th>Damage</th>
+						<th>Gold</th>
+						<th>CS</th>
+						<th>Wards</th>
+						<th>Items</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr class="">
+						<td class="px-4 pl-10">
+							<div class="flex">
+								<img src="https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png" class="size-10"/>
+								<div class="flex flex-col justify-evenly">
+									<p>Doublelift</p>
+									<p>Challenger</p>
+								</div>
+							</div>
+						</td>
+						<td class="px-4">
+							<div>
+								<div>3 / 10 / 3</div>
+								<div>0.60 KDA</div>
+							</div>
+						</td>
+						<td>
+							<div>
+								<div>22,268</div>
+							</div>
+						</td>
+						<td>
+							<div>
+								<div>9.5k</div>
+							</div>
+						</td>
+						<td>
+							<div>
+								<div>172</div>
+							</div>
+						</td>
+						<td>
+							<div>
+								<div>9</div>
+							</div>
+						</td>
+						<td>
+							<div>
+								<div>9.5k</div>
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<div>
+			<div class="flex place-items-center gap-2">
+				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PressTheAttack/PressTheAttack.png"/>
+				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+			</div>
+		</div>
+		<div>
+			<div class="grid grid-18 grid-rows-4"></div>
+		</div>
+	</div>
+}
+
+templ matchPlayer(m *database.SummonerMatchPostGame) {
+	<tr class="">
+		<td class="px-4 pl-10">
+			<div class="flex">
+				<img src="https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png" class="size-10"/>
+				<div class="flex flex-col justify-evenly">
+					<p>Doublelift</p>
+					<p>Challenger</p>
+				</div>
+			</div>
+		</td>
+		<td class="px-4">
+			<div>
+				<div>3 / 10 / 3</div>
+				<div>0.60 KDA</div>
+			</div>
+		</td>
+		<td>
+			<div>
+				<div>22,268</div>
+			</div>
+		</td>
+		<td>
+			<div>
+				<div>9.5k</div>
+			</div>
+		</td>
+		<td>
+			<div>
+				<div>172</div>
+			</div>
+		</td>
+		<td>
+			<div>
+				<div>9</div>
+			</div>
+		</td>
+		<td>
+			<div>
+				<div>9.5k</div>
+			</div>
+		</td>
+	</tr>
+}
+
+templ matchCard(m *database.ProfileMatch) {
+	<div class="flex gap-4 pl-8 py-3 w-[40rem] bg-blue-50">
+		<div class="flex flex-col flex-none  flex-nowrap w-24 overflow-hidden">
+			<p class="text-xl font-bold">+100 </p>
+			<p class="text-xs">{ m.GetGameDate() } </p>
+			<p class="text-xs">{ m.GetGameDuration() } </p>
+		</div>
+		<div class="flex w-40 p-2 rounded-lg flex-none">
+			<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-1">
+				<div class="col-span-2 row-span-2">
+					<img src={ m.GetChampionIconUrl() } class="size-full rounded-md object-cover"/>
+				</div>
+				for i := range 2 {
+					<div class="">
+						<img src={ m.GetSpellsIconUrls()[i] } class="size-full rounded-sm object-cover"/>
+					</div>
+				}
+				<div class="col-span-2 row-span-2">
+					<img src={ m.GetChampionIconUrl() } class="size-full object-cover"/>
+				</div>
+			</div>
+		</div>
+		<div class="flex flex-col w-36 overflow-hidden">
+			<p class="text-xl font-bold text-nowrap">{ m.GetKDA() } ({ m.GetKillDeathRatio() }) </p>
+			<div class="flex gap-4">
+				<div class="flex flex-col">
+					<p class="text-xs">{ m.GetCreepScore() } </p>
+					<p class="text-xs">{ m.GetVisionScore() } </p>
+				</div>
+				<div class="flex flex-col">
+					<p class="text-xs">{ m.GetKillDeathRatio() } </p>
+					<p class="text-xs">{ m.GetCreepScore() } </p>
+				</div>
+			</div>
+		</div>
+		<div class="flex w-40 p-2 rounded-lg flex-none">
+			<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-1">
+				for i := range 6 {
+					<div class="">
+						<img src={ m.GetItemIconUrls()[i] } class="size-full rounded-sm object-cover"/>
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+templ ProfileSummary(m *database.ProfileSummary) {
+	<div class="">
+		<div class="flex">
+			<div class="rounded-sm">
+				<img class="rounded-lg border-4 border-black" src={ m.GetProfileIconUrl() }/>
+			</div>
+			<div class="flex flex-col justify-evenly ml-4">
+				<h1 class="text-7xl">{ m.GetName() }</h1>
+				<p class="text-5xl">{ m.GetRank() } { m.GetRankLP() }, { m.GetWinLoss() }</p>
+			</div>
+		</div>
+	</div>
+}

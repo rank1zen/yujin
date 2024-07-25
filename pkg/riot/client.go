@@ -12,7 +12,6 @@ import (
 const (
 	defaultNaBaseURL       = "https://na1.api.riotgames.com"
 	defaultAmerBaseURL     = "https://americas.api.riotgames.com"
-	defaultBaseURLTemplate = "https://%s.api.riotgames.com"
 )
 
 type Client struct {

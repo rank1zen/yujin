@@ -1,8 +1,7 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:13-alpine
+    image: postgres:13
+    container_name: postgres
     environment:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
@@ -10,7 +9,6 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-
+      - yujin-db:/var/lib/postgresql/data
 volumes:
-  pgdata:
+  yujin-db:

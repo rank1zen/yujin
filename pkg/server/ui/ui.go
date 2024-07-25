@@ -15,34 +15,33 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type ui struct {
-	db     *database.DB
-	logger *zap.Logger
-}
-
-func NewUI(db *database.DB, logger *zap.Logger) *ui {
-	return &ui{
-		db:     db,
-		logger: logger,
-	}
-}
-
-func (ui *ui) Routes() *chi.Mux {
+func Routes(db *database.DB, logger *zap.Logger) *chi.Mux {
 	router := chi.NewRouter()
 
 	router.Use(middleware.NoCache)
-	router.Use(ui.loggingMiddleware(ui.logger))
-	router.Use(ui.requestIdMiddleware)
+	router.Use(requestIdMiddleware)
+	router.Use(loggingMiddleware(logger))
+	router.Use(middleware.Recoverer)
 
-	// STATIC FILES
+	router.NotFound(NotFoundHandler())
+
 	workDir, _ := os.Getwd()
 	filesDir := http.Dir(filepath.Join(workDir, "static"))
 	FileServer(router, "/static", filesDir)
 
-	router.Get("/", ui.home())
-	router.Get("/profile/{puuid}", ui.profile())
+	router.Get("/", aboutPage)
+
+	router.Get("/profile/{name}", profilePage)
+	router.Get("/profile/{name}/matchlist", profileMatchList(db))
 
 	return router
+}
+
+func NotFoundHandler() http.HandlerFunc {
+	fn := ErrorNotFound()
+	return func(w http.ResponseWriter, r *http.Request) {
+		fn(w, r)
+	}
 }
 
 func FileServer(r chi.Router, path string, root http.FileSystem) {
@@ -64,29 +63,40 @@ func FileServer(r chi.Router, path string, root http.FileSystem) {
 	})
 }
 
-func (a *ui) requestIdMiddleware(next http.Handler) http.Handler {
+func loggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+
+			wrw := middleware.NewWrapResponseWriter(w, 1)
+
+			next.ServeHTTP(wrw, r)
+
+			duration := time.Since(start).Milliseconds()
+
+			fields := []zapcore.Field{
+				zap.Int64("duration_ms", duration),
+				zap.String("method", r.Method),
+				zap.Int("response#bytes", wrw.BytesWritten()),
+				zap.Int("status", wrw.Status()),
+				zap.String("url", r.RequestURI),
+				zap.String("request#id", wrw.Header().Get("X-Yujin-Request-Id")),
+			}
+
+			if wrw.Status() == 200 {
+				logger.Info("", fields...)
+			} else {
+				err := wrw.Header().Get("X-Yujin-Error")
+				logger.Error(err, fields...)
+			}
+		})
+	}
+}
+
+func requestIdMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := uuid.Must(uuid.NewRandom()).String()
 		w.Header().Set("X-Yujin-Request-Id", id)
 		next.ServeHTTP(w, r)
 	})
-}
-
-func (ui *ui) loggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-
-			next.ServeHTTP(w, r)
-
-			duration := time.Since(start).Milliseconds()
-
-			fields := []zapcore.Field{
-				zap.Int64("duration", duration),
-				zap.String("method", r.Method),
-			}
-
-			logger.Info("", fields...)
-		})
-	}
 }

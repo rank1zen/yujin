@@ -7,7 +7,7 @@ import (
 	"github.com/rank1zen/yujin/pkg/riot"
 )
 
-func matchInfoQuery(m *riot.Match) (string, []any) {
+func matchInfoQuery(m *riot.MatchDto) (string, []any) {
 	// NOTE: When we get further along, we some fields will be missing and we have to adjust gameDuration
 	// since that will be in millisecs
 	// NOTE: the end time of a game should be the max time played of any player, check docs bro
@@ -47,7 +47,18 @@ func matchParticipantQuery(matchID string, m *riot.Participant) (string, []any) 
 }
 
 func matchRuneQuery(matchID, m *riot.Participant) (string, []any) {
-	panic("not implemented")
+	sql := `
+	INSERT INTO match_rune_records
+		(match_id, puuid, rune_id, rune_slot)
+	VALUES
+		($1, $2, $3, $4),
+		($6, $7, $8, $9);
+	`
+
+	// 9 choices
+	return sql, []any{
+		matchID, m.PUUID,
+	}
 }
 
 func matchSummonerSpellQuery(matchID string, m *riot.Participant) (string, []any) {

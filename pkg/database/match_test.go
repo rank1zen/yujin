@@ -86,6 +86,26 @@ func TestMatch_GetMatchPlayerList(t *testing.T) {
 	}
 }
 
+func TestMatch_GetProfileMatchSummary(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
+	defer cancel()
+
+	db := setupDB(t)
+
+	puuid := "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q"
+	id := "NA1_5011055088"
+	_, err := db.getMatchPlayer(ctx, puuid, id)
+	require.NoError(t, err)
+
+	summary, err := db.getMatchMore(ctx, id)
+	if assert.NoError(t, err) {
+		assert.Equal(t, "0.5", summary.PlayerSummaries[0].GetKillDeathRatio())
+	}
+
+}
+
 // func TestGetMatchHistory(t *testing.T) {
 // 	t.Parallel()
 //

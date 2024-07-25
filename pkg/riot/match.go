@@ -5,10 +5,12 @@ import (
 	"fmt"
 )
 
-type Match struct {
+type MatchDto struct {
 	Info     *MatchInfo     `json:"info"`
 	Metadata *MatchMetadata `json:"metadata"`
 }
+
+type MatchDtoList []*MatchDto
 
 type MatchMetadata struct {
 	DataVersion  string   `json:"dataVersion"`
@@ -186,12 +188,117 @@ type Participant struct {
 	Win                            bool              `json:"win"`
 }
 
-// TODO: implement
-type MatchTimeline struct{}
+type MatchTimeline struct {
+	Metadata *MetadataTimeLine
+	Info *InfoTimeLine
+}
+
+type MetadataTimeLine struct {}
+
+type InfoTimeLine struct {
+	EndOfGameResult 	string
+	FrameInterval 	int64 	
+	GameId 	int64 	
+	Participants 	[]*ParticipantTimeLine
+	Frames 	[]*FramesTimeLine
+}
+
+type ParticipantTimeLine struct { }
+
+type FramesTimeLine struct {
+	ParticipantFrames map[string]*ParticipantFrame `json:"participantFrames"`
+	Events            []*MatchEvent                `json:"events"`
+	Timestamp         int                          `json:"timestamp"`
+}
+
+type MatchPosition struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+// ParticipantFrame contains information about a participant in a game at a single timestamp
+type ParticipantFrame struct {
+	Position            *MatchPosition `json:"position"`
+	TotalGold           int            `json:"totalGold"`
+	TeamScore           int            `json:"teamScore"`
+	ParticipantID       int            `json:"participantId"`
+	Level               int            `json:"level"`
+	CurrentGold         int            `json:"currentGold"`
+	MinionsKilled       int            `json:"minionsKilled"`
+	DominionScore       int            `json:"dominionScore"`
+	XP                  int            `json:"xp"`
+	JungleMinionsKilled int            `json:"jungleMinionsKilled"`
+}
+
+// MatchEventType is the type of an event
+type MatchEventType string
+
+// All legal value for match event types
+const (
+	MatchEventTypeChampionKill     MatchEventType = "CHAMPION_KILL"
+	MatchEventTypeWardPlaced       MatchEventType = "WARD_PLACED"
+	MatchEventTypeWardKill         MatchEventType = "WARD_KILL"
+	MatchEventTypeBuildingKill     MatchEventType = "BUILDING_KILL"
+	MatchEventTypeEliteMonsterKill MatchEventType = "ELITE_MONSTER_KILL"
+	MatchEventTypeItemPurchased    MatchEventType = "ITEM_PURCHASED"
+	MatchEventTypeItemSold         MatchEventType = "ITEM_SOLD"
+	MatchEventTypeItemDestroyed    MatchEventType = "ITEM_DESTROYED"
+	MatchEventTypeItemUndo         MatchEventType = "ITEM_UNDO"
+	MatchEventTypeSkillLevelUp     MatchEventType = "SKILL_LEVEL_UP"
+	MatchEventTypeAscendedEvent    MatchEventType = "ASCENDED_EVENT"
+	MatchEventTypeCapturePoint     MatchEventType = "CAPTURE_POINT"
+	MatchEventTypePoroKingSummon   MatchEventType = "PORO_KING_SUMMON"
+)
+
+var (
+	// MatchEventTypes is a list of all available match events
+	MatchEventTypes = []MatchEventType{
+		MatchEventTypeChampionKill,
+		MatchEventTypeWardPlaced,
+		MatchEventTypeWardKill,
+		MatchEventTypeBuildingKill,
+		MatchEventTypeEliteMonsterKill,
+		MatchEventTypeItemPurchased,
+		MatchEventTypeItemSold,
+		MatchEventTypeItemDestroyed,
+		MatchEventTypeItemUndo,
+		MatchEventTypeSkillLevelUp,
+		MatchEventTypeAscendedEvent,
+		MatchEventTypeCapturePoint,
+		MatchEventTypePoroKingSummon,
+	}
+)
+
+// MatchEvent is an event in a match at a certain timestamp
+type MatchEvent struct {
+	Type                    *MatchEventType `json:"type"`
+	Position                *MatchPosition  `json:"position"`
+	LevelUpType             string          `json:"levelUpType"`
+	AscendedType            string          `json:"ascendedType"`
+	TowerType               string          `json:"towerType"`
+	EventType               string          `json:"eventType"`
+	PointCaptured           string          `json:"pointCaptured"`
+	WardType                string          `json:"wardType"`
+	MonsterType             string          `json:"monsterType"`
+	BuildingType            string          `json:"buildingType"`
+	LaneType                string          `json:"laneType"`
+	MonsterSubType          string          `json:"monsterSubType"`
+	AssistingParticipantIDs []int           `json:"assistingParticipantIds"`
+	Timestamp               int             `json:"timestamp"`
+	AfterID                 int             `json:"afterId"`
+	VictimID                int             `json:"victimId"`
+	SkillSlot               int             `json:"skillSlot"`
+	ItemID                  int             `json:"itemId"`
+	ParticipantID           int             `json:"participantId"`
+	TeamID                  int             `json:"teamId"`
+	CreatorID               int             `json:"creatorId"`
+	KillerID                int             `json:"killerId"`
+	BeforeID                int             `json:"beforeId"`
+}
 
 // Get a list of match ids by puuid (ONLY RANKED SOLOQ, queueId 420)
 func (s *Client) GetMatchHistory(ctx context.Context, puuid string, start int, count int) ([]string, error) {
-	u := fmt.Sprintf(defaultBaseURLTemplate+"/lol/match/v5/matches/by-puuid/%s/ids?queue=420&start=%d&count=%d", "americas", puuid, start, count)
+	u := fmt.Sprintf(defaultAmerBaseURL+"/lol/match/v5/matches/by-puuid/%s/ids?queue=420&start=%d&count=%d", puuid, start, count)
 	req := NewRequest(
 		WithToken2(),
 		WithURL(u),
@@ -207,14 +314,14 @@ func (s *Client) GetMatchHistory(ctx context.Context, puuid string, start int, c
 }
 
 // Get a match by match id
-func (c *Client) GetMatch(ctx context.Context, matchID string) (*Match, error) {
-	u := fmt.Sprintf(defaultBaseURLTemplate+"/lol/match/v5/matches/%s", "americas", matchID)
+func (c *Client) GetMatch(ctx context.Context, matchID string) (*MatchDto, error) {
+	u := fmt.Sprintf(defaultAmerBaseURL+"/lol/match/v5/matches/%s", matchID)
 	req := NewRequest(
 		WithURL(u),
 		WithToken2(),
 	)
 
-	var match Match
+	var match MatchDto
 	err := c.Do(ctx, req, &match)
 	if err != nil {
 		return nil, err
@@ -224,7 +331,18 @@ func (c *Client) GetMatch(ctx context.Context, matchID string) (*Match, error) {
 }
 
 // Get a match timeline by match id
-// TODO: implement
 func (c *Client) GetMatchTimeline(ctx context.Context, matchID string) (*MatchTimeline, error) {
-	return nil, nil
+	u := fmt.Sprintf(defaultAmerBaseURL+"/lol/match/v5/matches/%s/timeline", matchID)
+	req := NewRequest(
+		WithURL(u),
+		WithToken2(),
+	)
+
+	var timeline MatchTimeline
+	err := c.Do(ctx, req, &timeline)
+	if err != nil {
+		return nil, err
+	}
+
+	return &timeline, nil
 }

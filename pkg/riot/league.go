@@ -5,35 +5,43 @@ import (
 	"fmt"
 )
 
-type LeagueItem struct {
+type LeagueEntry struct {
+	MiniSeries   *MiniSeries
 	QueueType    string `json:"queueType"`
-	SummonerName string `json:"summonerName"`
-	HotStreak    bool   `json:"hotStreak"`
-	Wins         int    `json:"wins"`
-	Veteran      bool   `json:"veteran"`
-	Losses       int    `json:"losses"`
-	FreshBlood   bool   `json:"freshBlood"`
-	Inactive     bool   `json:"inactive"`
 	Tier         string `json:"tier"`
 	Rank         string `json:"rank"`
-	SummonerID   string `json:"summonerId"`
+	SummonerId   string `json:"summonerId"`
+	LeagueId     string `json:"leagueId"`
+	Losses       int    `json:"losses"`
 	LeaguePoints int    `json:"leaguePoints"`
+	Wins         int    `json:"wins"`
+	HotStreak    bool   `json:"hotStreak"`
+	Veteran      bool   `json:"veteran"`
+	FreshBlood   bool   `json:"freshBlood"`
+	Inactive     bool   `json:"inactive"`
 }
 
-// Get ranked soloq for a given summoner ID.
-// TODO: implement
+type LeagueEntryList []*LeagueEntry
+
+type MiniSeries struct {
+	Progress string
+	Losses   int
+	Target   int
+	Wins     int
+}
+
+// Get league entries in all queues for a given summoner ID.
 // https://developer.riotgames.com/apis#league-v4/GET_getLeagueEntriesForSummoner
-func (c *Client) GetSoloqRank(ctx context.Context, summonerID string) (*LeagueItem, error) {
-	panic("not implemented")
+func (c *Client) GetLeagueEntriesForSummoner(ctx context.Context, summonerID string) (LeagueEntryList, error) {
 	u := fmt.Sprintf(defaultNaBaseURL+"/lol/league/v4/entries/by-summoner/%v", summonerID)
 
 	req := NewRequest(WithToken2(), WithURL(u))
 
-	var a []LeagueItem
+	var a LeagueEntryList
 	err := c.Do(ctx, req, &a)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return a, nil
 }
