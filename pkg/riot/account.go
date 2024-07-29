@@ -14,7 +14,7 @@ type Account struct {
 // Get account by riot id
 // https://developer.riotgames.com/apis#account-v1/GET_getByRiotId
 func (c *Client) GetAccountByRiotId(ctx context.Context, gameName, tagLine string) (*Account, error) {
-	u := fmt.Sprintf(defaultNaBaseURL+"/account/v1/accounts/by-riot-id/%v/%v", gameName, tagLine)
+	u := fmt.Sprintf(defaultAmerBaseURL+"/riot/account/v1/accounts/by-riot-id/%s/%s", gameName, tagLine)
 
 	req := NewRequest(WithToken2(), WithURL(u))
 

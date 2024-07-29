@@ -3,89 +3,38 @@ package database
 import (
 	"context"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
-type Puuid string
-
-type SummonerId string
-
-
 type SummonerRecord struct {
-	RecordId      string    `db:"record_id"`
 	RecordDate    time.Time `db:"record_date"`
+	RevisionDate  time.Time `db:"revision_date"`
+	RecordId      string    `db:"record_id"`
 	Puuid         string    `db:"puuid"`
 	AccountId     string    `db:"account_id"`
 	SummonerId    string    `db:"summoner_id"`
 	ProfileIconId int32     `db:"profile_icon_id"`
 	SummonerLevel int32     `db:"summoner_level"`
-	RevisionDate  time.Time `db:"revision_date"`
 }
 
-func (db *DB) CheckExistsSummonerRecord(ctx context.Context, puuid string) (bool, error) {
-	var found bool
-	err := db.pool.QueryRow(ctx, `
-	SELECT EXISTS (SELECT 1 FROM summoner_records WHERE puuid = $1)
-	`, puuid).Scan(&found)
-
-	return found, err
-}
-
-func (db *DB) UpdateSummoner(ctx context.Context, puuid string) (*SummonerRecord, error) {
-	m, err := db.riot.GetSummoner(ctx, puuid)
+func (db *DB) updateSummoner(ctx context.Context, puuid RiotPuuid) error {
+	m, err := db.riot.GetSummoner(ctx, puuid.String())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	ts := time.Unix(m.RevisionDate/1000, 0)
+	row := map[string]any{}
+	row["summoner_id"] = m.Id
+	row["account_id"] = m.AccountId
+	row["puuid"] = m.Puuid
+	row["revision_date"] = time.Unix(m.RevisionDate/1000, 0)
+	row["profile_icon_id"] = m.ProfileIconId
+	row["summoner_level"] = m.SummonerLevel
 
-	rows, _ := db.pool.Query(ctx, `
-	INSERT INTO summoner_records
-	(
-		summoner_id,
-		account_id,
-		puuid,
-		revision_date,
-		profile_icon_id,
-		summoner_level
-	)
-	VALUES ($1, $2, $3, $4, $5, $6)
-	RETURNING *;
-	`,
-	m.Id,
-	m.AccountId,
-	m.Puuid,
-	ts,
-	m.ProfileIconId,
-	m.SummonerLevel,
-	)
-
-	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByNameLax[SummonerRecord])
+	// TODO: make these go in transaction
+	err = queryInsertRow(ctx, db.pool, "summoner_records", row)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return res, nil
-}
-
-func (db *DB) NewestSummonerRecord(ctx context.Context, puuid string) (*SummonerRecord, error) {
-	rows, _ := db.pool.Query(ctx, `SELECT * FROM summoner_records_newest WHERE puuid = $1`, puuid)
-
-	record, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByNameLax[SummonerRecord])
-	if err != nil {
-		return nil, err
-	}
-
-	return record, nil
-}
-
-func (db *DB) CountSummonerRecords(ctx context.Context, puuid string) (int64, error) {
-	var c int64
-	err := db.pool.QueryRow(ctx, `SELECT count(*) FROM summoner_records WHERE puuid = $1`, puuid).Scan(&c)
-	if err != nil {
-		return 0, err
-	}
-
-	return c, nil
+	return nil
 }

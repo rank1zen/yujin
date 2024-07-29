@@ -3,11 +3,20 @@ package database
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 type RiotPuuid string
 
+func (id RiotPuuid) String() string {
+	return string(id)
+}
+
 type RiotSummonerId string
+
+func (id RiotSummonerId) String() string {
+	return string(id)
+}
 
 type RiotName struct {
 	GameName string
@@ -15,14 +24,15 @@ type RiotName struct {
 }
 
 func ParseRiotName(s string) (RiotName, error) {
+	parts := strings.SplitN(s, "-", 2)
 	return RiotName{
-		GameName: "a",
-		TagLine: "a",
+		GameName: parts[0],
+		TagLine: parts[1],
 	}, nil
 }
 
-func (n RiotName) String() string {
-	return fmt.Sprintf("%s #%s", n.GameName, n.TagLine)
+func (name RiotName) String() string {
+	return fmt.Sprintf("%s#%s", name.GameName, name.TagLine)
 }
 
 type Identifiers struct {
@@ -33,7 +43,7 @@ type Identifiers struct {
 func (db *DB) GetAccount(ctx context.Context, name RiotName) (*Identifiers, error) {
 	acc, err := db.riot.GetAccountByRiotId(ctx, name.GameName, name.TagLine)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get riot account: %w", err)
 	}
 
 	summ, err := db.riot.GetSummoner(ctx, acc.Puuid)

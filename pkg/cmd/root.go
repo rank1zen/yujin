@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/spf13/cobra"
 )
@@ -13,9 +12,7 @@ func Execute(ctx context.Context) int {
 		Short: "Minimalist, Opinionated League of Legends.",
 	}
 
-	go func() {
-		http.ListenAndServe(":8080", nil)
-	}()
+	rootCmd.AddCommand(UiCmd(ctx))
 
 	err := rootCmd.Execute()
 	if err != nil {

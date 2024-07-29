@@ -35,7 +35,7 @@ func NewDB(ctx context.Context, url string) (*DB, error) {
 
 	err = pool.Ping(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
+		return nil, err
 	}
 
 	riot := riot.NewClient()

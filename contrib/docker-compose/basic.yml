@@ -1,11 +1,11 @@
 services:
   db:
     image: postgres:13
-    container_name: postgres
+    container_name: yujin-postgres
     environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydb
+      - POSTGRES_USER=yujin
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=yujin
     ports:
       - "5432:5432"
     volumes:

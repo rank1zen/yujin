@@ -31,7 +31,7 @@ func Routes(db *database.DB, logger *zap.Logger) *chi.Mux {
 
 	router.Get("/", aboutPage)
 
-	router.Get("/profile/{name}", profilePage)
+	router.Get("/profile/{name}", profilePage(db))
 	router.Get("/profile/{name}/matchlist", profileMatchList(db))
 
 	return router

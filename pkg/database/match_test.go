@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -14,19 +13,7 @@ const (
 	AndrewPUUID   = "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q"
 )
 
-func TestContextTimeout(t *testing.T) {
-	t.Parallel()
-
-	ctx, cancel := context.WithTimeout(testingContext(t), 100*time.Millisecond)
-	defer cancel()
-
-	db := setupDB(t)
-
-	_, err := db.getMatchPlayer(ctx, AndrewPUUID, AndrewMatchID)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
-}
-
-func TestMatch_GetMatchPlayer(t *testing.T) {
+func TestEnsureMatchlist(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
@@ -34,76 +21,8 @@ func TestMatch_GetMatchPlayer(t *testing.T) {
 
 	db := setupDB(t)
 
-	puuid := "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q"
-	id := "NA1_5011055088"
-	first, err := db.getMatchPlayer(ctx, puuid, id)
-	require.NoError(t, err)
-	require.Equal(t, time.Date(2024, time.June, 2, 0, 45, 29, 0, time.UTC), first.GameDate)
-
-	second, err := db.getMatchPlayer(ctx, puuid, id)
-	if assert.NoError(t, err) {
-		assert.Equal(t, first, second)
-	}
-}
-
-func TestMatch_GetMatchPlayerHasFields(t *testing.T) {
-	t.Parallel()
-
-	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
-	defer cancel()
-
-	db := setupDB(t)
-
-	puuid := "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q"
-	id := "NA1_5011055088"
-	got, err := db.getMatchPlayer(ctx, puuid, id)
-	if assert.NoError(t, err) {
-		assert.Equal(t, 1, got.Assists)
-	}
-}
-
-func TestMatch_GetMatchPlayerList(t *testing.T) {
-	t.Parallel()
-
-	_, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
-	defer cancel()
-
-	_ = setupDB(t)
-
-	for range []struct {
-		matchIDs []string
-		want     []string
-	}{
-		{
-			[]string{"NA1_5011055088"},
-			[]string{"NA1_5011055088"},
-		},
-		{
-			[]string{"NA1_5011055088"},
-			[]string{},
-		},
-	} {
-	}
-}
-
-func TestMatch_GetProfileMatchSummary(t *testing.T) {
-	t.Parallel()
-
-	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
-	defer cancel()
-
-	db := setupDB(t)
-
-	puuid := "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q"
-	id := "NA1_5011055088"
-	_, err := db.getMatchPlayer(ctx, puuid, id)
-	require.NoError(t, err)
-
-	summary, err := db.getMatchMore(ctx, id)
-	if assert.NoError(t, err) {
-		assert.Equal(t, "0.5", summary.PlayerSummaries[0].GetKillDeathRatio())
-	}
-
+	err := db.ensureMatchlist(ctx, AndrewPUUID, 0, 1)
+	assert.NoError(t, err)
 }
 
 // func TestGetMatchHistory(t *testing.T) {

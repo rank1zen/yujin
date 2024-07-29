@@ -3,8 +3,28 @@ package partials
 import "github.com/rank1zen/yujin/pkg/database"
 import "fmt"
 
+templ ProfileSummary(m *database.ProfileSummary) {
+	<div class="">
+		<div class="flex">
+			<div class="rounded-sm">
+				<img class="rounded-lg border-4 border-black" src={ m.GetProfileIconUrl() }/>
+			</div>
+			<div class="flex flex-col justify-evenly ml-4">
+				<h1 class="text-7xl">{ m.GetName() }</h1>
+				<p class="text-5xl">{ m.GetRank() } { m.GetLp() }, { m.GetWinLoss() }</p>
+			</div>
+		</div>
+	</div>
+}
+
+templ ProfileSummaryError() {
+	<div class="container flex flex-col items-center justify-center px-5 mx-auto my-8">
+		<img src="https://fonts.gstatic.com/s/i/materialicons/error_outline/v6/24px.svg"/>
+	</div>
+}
+
 templ ProfileMatchlist(matches *database.ProfileMatchListPage) {
-	<ul class="flex flex-col gap-2 w-[40rem]">
+	<ul class="flex flex-col gap-2">
 		if matches.Count > 0 {
 			for i := range matches.Count {
 				<li class="">
@@ -30,8 +50,14 @@ templ ProfileMatchlist(matches *database.ProfileMatchListPage) {
 
 // TODO: We can add different types of errors if we want
 templ ProfileMatchlistError() {
-	<div class="container flex flex-col items-center justify-center px-5 mx-auto my-8">
-		<img src="https://fonts.gstatic.com/s/i/materialicons/error_outline/v6/24px.svg"/>
+	<div class="">
+		Error fetching matchlist.
+	</div>
+}
+
+templ ProfileMatchlistEndOfList() {
+	<div class="">
+		No more matches.
 	</div>
 }
 
@@ -158,62 +184,40 @@ templ matchPlayer(m *database.SummonerMatchPostGame) {
 }
 
 templ matchCard(m *database.ProfileMatch) {
-	<div class="flex gap-4 pl-8 py-3 w-[40rem] bg-blue-50">
-		<div class="flex flex-col flex-none  flex-nowrap w-24 overflow-hidden">
-			<p class="text-xl font-bold">+100 </p>
-			<p class="text-xs">{ m.GetGameDate() } </p>
-			<p class="text-xs">{ m.GetGameDuration() } </p>
-		</div>
-		<div class="flex w-40 p-2 rounded-lg flex-none">
-			<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-1">
-				<div class="col-span-2 row-span-2">
-					<img src={ m.GetChampionIconUrl() } class="size-full rounded-md object-cover"/>
+	<div class="max-w-lg rounded-md shadow py-4 px-8">
+		<div class="grid grid-flow-col grid-cols-[repeat(14,26px)] grid-rows-[repeat(2,26px)] gap-1">
+			<div class="flex flex-col row-span-2 col-span-3 truncate justify-between">
+				<span class="text-sm font-bold block">+21</span>
+				<span class="text-sm font-medium block">{ m.GetGameDate() } </span>
+				<span class="text-sm font-medium block">{ m.GetGameDuration() } </span>
+			</div>
+			<div class="col-span-2 row-span-2">
+				<img src={ m.GetChampionIconUrl() } class="size-full rounded-md"/>
+			</div>
+			for i := range 2 {
+				<div class="">
+					<img src={ m.GetSpellIconsUrls()[i] } class="size-full rounded"/>
 				</div>
-				for i := range 2 {
-					<div class="">
-						<img src={ m.GetSpellsIconUrls()[i] } class="size-full rounded-sm object-cover"/>
-					</div>
-				}
-				<div class="col-span-2 row-span-2">
-					<img src={ m.GetChampionIconUrl() } class="size-full object-cover"/>
+			}
+			<div class="col-span-2 row-span-2">
+				<img src={ m.GetChampionIconUrl() } class="size-full rounded-md"/>
+			</div>
+			<div class="row-span-2 col-span-3 truncate justify-between">
+				<span class="text-sm font-medium block">
+					<span class="font-bold">{ m.GetKills() }</span>
+					<span class="text-slate-300">/</span>
+					<span class="font-bold">{ m.GetDeaths() }</span>
+					<span class="text-slate-300">/</span>
+					<span class="font-bold">{ m.GetAssists() }</span>
+				</span>
+				<span class="text-sm font-medium block">{ m.GetKdaRatio() } KDA</span>
+				<span class="text-sm font-medium block">{ m.GetCreepScore() } CS</span>
+			</div>
+			for i := range 6 {
+				<div class="shadow-xl">
+					<img src={ m.GetItemIconUrls()[i] } class="size-full rounded"/>
 				</div>
-			</div>
-		</div>
-		<div class="flex flex-col w-36 overflow-hidden">
-			<p class="text-xl font-bold text-nowrap">{ m.GetKDA() } ({ m.GetKillDeathRatio() }) </p>
-			<div class="flex gap-4">
-				<div class="flex flex-col">
-					<p class="text-xs">{ m.GetCreepScore() } </p>
-					<p class="text-xs">{ m.GetVisionScore() } </p>
-				</div>
-				<div class="flex flex-col">
-					<p class="text-xs">{ m.GetKillDeathRatio() } </p>
-					<p class="text-xs">{ m.GetCreepScore() } </p>
-				</div>
-			</div>
-		</div>
-		<div class="flex w-40 p-2 rounded-lg flex-none">
-			<div class="grid grid-flow-col grid-cols-5 grid-rows-2 justify-start gap-1">
-				for i := range 6 {
-					<div class="">
-						<img src={ m.GetItemIconUrls()[i] } class="size-full rounded-sm object-cover"/>
-					</div>
-				}
-			</div>
-		</div>
-	</div>
-}
-
-templ ProfileSummary(m *database.ProfileSummary) {
-	<div class="">
-		<div class="flex">
-			<div class="rounded-sm">
-				<img class="rounded-lg border-4 border-black" src={ m.GetProfileIconUrl() }/>
-			</div>
-			<div class="flex flex-col justify-evenly ml-4">
-				<h1 class="text-7xl">{ m.GetName() }</h1>
-				<p class="text-5xl">{ m.GetRank() } { m.GetRankLP() }, { m.GetWinLoss() }</p>
-			</div>
+			}
 		</div>
 	</div>
 }

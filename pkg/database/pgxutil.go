@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type pgxDB interface {
+type db interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sql string, optionsAndArgs ...any) (pgx.Rows, error)
@@ -20,16 +20,12 @@ type pgxDB interface {
 	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
 }
 
-type queryer interface {
+type query interface {
 	Query(ctx context.Context, sql string, optionsAndArgs ...any) (pgx.Rows, error)
 }
 
-type execer interface {
+type exec interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
-}
-
-type batcher interface {
-	Queue(sql string, arguments ...any)
 }
 
 type SQLValue string
@@ -49,7 +45,7 @@ func makePgxIdentifier(v any) (pgx.Identifier, error) {
 	}
 }
 
-func SelectRow[T any](ctx context.Context, db queryer, sql string, args []any, scanFn pgx.RowToFunc[T]) (T, error) {
+func querySelectRow[T any](ctx context.Context, db query, sql string, args []any, scanFn pgx.RowToFunc[T]) (T, error) {
 	rows, _ := db.Query(ctx, sql, args...)
 	collectedRow, err := pgx.CollectOneRow(rows, scanFn)
 	if err != nil {
@@ -58,13 +54,13 @@ func SelectRow[T any](ctx context.Context, db queryer, sql string, args []any, s
 	}
 
 	if rows.CommandTag().RowsAffected() > 1 {
-		return collectedRow, errTooManyRows
+		return collectedRow, fmt.Errorf("too many rows")
 	}
 
 	return collectedRow, nil
 }
 
-func Select[T any](ctx context.Context, db queryer, sql string, args []any, scanFn pgx.RowToFunc[T]) ([]T, error) {
+func querySelect[T any](ctx context.Context, db query, sql string, args []any, scanFn pgx.RowToFunc[T]) ([]T, error) {
 	rows, _ := db.Query(ctx, sql, args...)
 	collectedRows, err := pgx.CollectRows(rows, scanFn)
 	if err != nil {
@@ -74,12 +70,30 @@ func Select[T any](ctx context.Context, db queryer, sql string, args []any, scan
 	return collectedRows, nil
 }
 
-func insertRow(ctx context.Context, db execer, tableName string, arg map[string]any) (pgconn.CommandTag, error) {
-	sql, args := insertSQL(nil, arg, "")
-	return db.Exec(ctx, sql, args)
+func queryInsertRow(ctx context.Context, db query, tableName any, values map[string]any) error {
+	tableIdent, err := makePgxIdentifier(tableName)
+	if err != nil {
+		return fmt.Errorf("InsertRow invalid tableName: %w", err)
+	}
+
+	sql, args := buildInsertRowSql(tableIdent, values, "")
+	_, err = wrapExec(ctx, db, sql, args)
+	return err
 }
 
-func insertSQL(tableName pgx.Identifier, values map[string]any, returningClause string) (sql string, args []any) {
+func batchInsertRow(batch *pgx.Batch, tableName any, values map[string]any) {
+	tableIdent, err := makePgxIdentifier(tableName)
+	if err != nil {
+		// Panicking is undesirable, but we don't want to have this function return an error or silently ignore the error.
+		// Possibly pgx.Batch should be modified to allow queueing an error.
+		panic(fmt.Sprintf("batchInsertRow invalid tableName: %v", err))
+	}
+
+	sql, args := buildInsertRowSql(tableIdent, values, "")
+	batch.Queue(sql, args...)
+}
+
+func buildInsertRowSql(tableName pgx.Identifier, values map[string]any, returningClause string) (sql string, args []any) {
 	b := &strings.Builder{}
 	b.WriteString("insert into ")
 	if len(tableName) == 1 {
@@ -127,4 +141,14 @@ func insertSQL(tableName pgx.Identifier, values map[string]any, returningClause 
 	}
 
 	return b.String(), args
+}
+
+func wrapExec(ctx context.Context, db query, sql string, args []any) (pgconn.CommandTag, error) {
+	rows, err := db.Query(ctx, sql, args...)
+	if err != nil {
+		return pgconn.CommandTag{}, err
+	}
+	rows.Close()
+
+	return rows.CommandTag(), rows.Err()
 }

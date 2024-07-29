@@ -1,11 +1,14 @@
 package pages
 
 import "strconv"
+import "github.com/rank1zen/yujin/pkg/database"
 
-templ ProfileNotFoundErrorPage() {
-	@base("uh oh!") {
+templ ProfileNotFoundErrorPage(name database.RiotName) {
+	@basePage("Summoner not found.") {
 		<section>
-			This summoner is not found.
+			<div class="text-2xl">
+				Could not find { name.String() } summoner is not found.
+			</div>
 		</section>
 	}
 }

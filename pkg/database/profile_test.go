@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// xpzpxnzLQX12ACv3iHZfqgdA8RGZQBLCiqJVa1rfVO8Z3KRiYD7YikD2RZC5mot0YhJNKn1UDxu-Ng
-// jpGYaAp070Kd35tVISUaS-tK4ZYoZYfwtGlBUR3sXV1UWVU
-func TestProfile(t *testing.T) {
+func TestGetProfileSummary(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
@@ -16,5 +17,30 @@ func TestProfile(t *testing.T) {
 
 	db := setupDB(t)
 
-	db.UpdateInitial(ctx, "xpzpxnzLQX12ACv3iHZfqgdA8RGZQBLCiqJVa1rfVO8Z3KRiYD7YikD2RZC5mot0YhJNKn1UDxu-Ng")
+	name, err := ParseRiotName("orrange-na1")
+	require.NoError(t, err)
+
+	err = db.UpdateProfile(ctx, name)
+	require.NoError(t, err)
+
+	_, err = db.GetProfileSummary(ctx, name)
+	assert.NoError(t, err)
+}
+
+func TestGetProfileMatchlist(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
+	defer cancel()
+
+	db := setupDB(t)
+
+	name, err := ParseRiotName("orrange-na1")
+	require.NoError(t, err)
+
+	err = db.UpdateProfile(ctx, name)
+	require.NoError(t, err)
+
+	_, err = db.GetProfileMatchList(ctx, name, 0)
+	assert.NoError(t, err)
 }
