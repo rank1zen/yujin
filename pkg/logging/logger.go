@@ -14,8 +14,6 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-// TODO: there are some clever things we can do with logging and embedded interfaces
-
 var (
 	once   sync.Once
 	logger *zap.Logger
@@ -23,7 +21,7 @@ var (
 
 type ctxKey struct{}
 
-func NewLogger() *zap.Logger {
+func Get() *zap.Logger {
 	once.Do(func() {
 		stdout := zapcore.AddSync(os.Stdout)
 

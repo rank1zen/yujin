@@ -49,7 +49,7 @@ func batchMatch(batch *pgx.Batch, m *riot.MatchDto) {
 	batchInsertRow(batch, "match_info_records", map[string]any{
 		"match_id":      m.Metadata.MatchId,
 		"game_date":     time.Unix(m.Info.GameStartTimestamp/1000, 0),
-		"game_duration": time.Duration(m.Info.GameCreation) * time.Second,
+		"game_duration": time.Duration(m.Info.GameDuration) * time.Second,
 		"game_patch":    m.Info.GameVersion,
 	})
 
@@ -71,8 +71,8 @@ func batchMatch(batch *pgx.Batch, m *riot.MatchDto) {
 			"rune_main_path":       p.Perks.Styles[0].Style,
 			"rune_main_keystone":   p.Perks.Styles[0].Selections[0].Perk,
 			"rune_main_slot1":      p.Perks.Styles[0].Selections[1].Perk,
-			"rune_main_slot2":      p.Perks.Styles[0].Selections[1].Perk,
-			"rune_main_slot3":      p.Perks.Styles[0].Selections[1].Perk, // THESE ARE ALL TODO
+			"rune_main_slot2":      p.Perks.Styles[0].Selections[2].Perk,
+			"rune_main_slot3":      p.Perks.Styles[0].Selections[3].Perk, // THESE ARE ALL TODO
 			"rune_secondary_path":  p.Perks.Styles[1].Style,
 			"rune_secondary_slot1": p.Perks.Styles[0].Selections[1].Perk,
 			"rune_secondary_slot2": p.Perks.Styles[0].Selections[1].Perk,
@@ -94,19 +94,17 @@ func batchMatch(batch *pgx.Batch, m *riot.MatchDto) {
 			batchInsertRow(batch, "match_summonerspell_records", row)
 		}
 
-		item := func(batch *pgx.Batch, id, slot int) {
-			row := map[string]any{}
-
-			row["match_id"] = m.Metadata.MatchId
-			row["puuid"] = p.PUUID
-			row["item_id"] = id
-			row["item_slot"] = slot
-
-			batchInsertRow(batch, "match_item_records", row)
-		}
-
 		spell(batch, p.Summoner1ID, 1, p.Summoner1Casts)
 		spell(batch, p.Summoner2ID, 2, p.Summoner2Casts)
+
+		item := func(batch *pgx.Batch, id, slot int) {
+			batchInsertRow(batch, "match_item_records", map[string]any{
+				"match_id":  m.Metadata.MatchId,
+				"puuid":     p.PUUID,
+				"item_id":   id,
+				"item_slot": slot,
+			})
+		}
 
 		item(batch, p.Item0, 0)
 		item(batch, p.Item1, 1)

@@ -27,7 +27,7 @@ templ ProfileMatchlist(matches *database.ProfileMatchListPage) {
 	<ul class="flex flex-col gap-2">
 		if matches.Count > 0 {
 			for i := range matches.Count {
-				<li class="">
+				<li class="flex hover:brightness-90 hover:bg-slate-50 rounded-md shadow">
 					@matchCard(matches.Matches[i])
 				</li>
 			}
@@ -184,9 +184,9 @@ templ matchPlayer(m *database.SummonerMatchPostGame) {
 }
 
 templ matchCard(m *database.ProfileMatch) {
-	<div class="max-w-lg rounded-md shadow py-4 px-8">
+	<div class="py-4 pr-6 pl-4">
 		<div class="grid grid-flow-col grid-cols-[repeat(14,26px)] grid-rows-[repeat(2,26px)] gap-1">
-			<div class="flex flex-col row-span-2 col-span-3 truncate justify-between">
+			<div class="flex flex-col row-span-2 col-span-3 pr-4 pl-2 truncate justify-between">
 				<span class="text-sm font-bold block">+21</span>
 				<span class="text-sm font-medium block">{ m.GetGameDate() } </span>
 				<span class="text-sm font-medium block">{ m.GetGameDuration() } </span>
@@ -202,7 +202,7 @@ templ matchCard(m *database.ProfileMatch) {
 			<div class="col-span-2 row-span-2">
 				<img src={ m.GetChampionIconUrl() } class="size-full rounded-md"/>
 			</div>
-			<div class="row-span-2 col-span-3 truncate justify-between">
+			<div class="row-span-2 col-span-3 truncate justify-between pr-4 pl-2">
 				<span class="text-sm font-medium block">
 					<span class="font-bold">{ m.GetKills() }</span>
 					<span class="text-slate-300">/</span>
@@ -211,7 +211,7 @@ templ matchCard(m *database.ProfileMatch) {
 					<span class="font-bold">{ m.GetAssists() }</span>
 				</span>
 				<span class="text-sm font-medium block">{ m.GetKdaRatio() } KDA</span>
-				<span class="text-sm font-medium block">{ m.GetCreepScore() } CS</span>
+				<span class="text-sm font-medium block">{ m.GetCreepScore() } (9.4) CS</span>
 			</div>
 			for i := range 6 {
 				<div class="shadow-xl">

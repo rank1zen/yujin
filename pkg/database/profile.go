@@ -24,7 +24,7 @@ type SummonerMatchPostGame struct {
 }
 
 func (m SummonerMatchPostGame) GetChampionIconUrl() string {
-	return "https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png"
+	return "https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png"
 }
 
 func (m SummonerMatchPostGame) GetSpellIconsUrls() []string {
@@ -36,13 +36,21 @@ func (m SummonerMatchPostGame) GetSpellIconsUrls() []string {
 
 func (m SummonerMatchPostGame) GetItemIconUrls() []string {
 	return []string{
-		"https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png",
-		"https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png",
-		"https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png",
-		"https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png",
-		"https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png",
-		"https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png",
+		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[0]),
+		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[1]),
+		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[2]),
+		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[3]),
+		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[4]),
+		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[5]),
 	}
+}
+
+func (m SummonerMatchPostGame) GetRunePrimaryUrl() string {
+	return ""
+}
+
+func (m SummonerMatchPostGame) GetRuneSecondaryUrl() string {
+	return ""
 }
 
 func (m SummonerMatchPostGame) GetRank() string {
@@ -83,6 +91,10 @@ func (m SummonerMatchPostGame) GetCreepScore() string {
 
 func (m SummonerMatchPostGame) GetVisionScore() string {
 	return fmt.Sprintf("%d", m.VisionScore)
+}
+
+func (m SummonerMatchPostGame) Ensure() bool {
+	return len(m.Items) == 6 && len(m.SummonerSpell) == 2
 }
 
 type SummonerMatchPostGameList []*SummonerMatchPostGame
@@ -134,6 +146,25 @@ func (m ProfileSummary) GetName() string {
 	return m.Name.String()
 }
 
+func (db *DB) UpdateProfileSummary(ctx context.Context, name RiotName) (*ProfileSummary, error) {
+	ids, err := db.GetAccount(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.updateSummoner(ctx, ids.Puuid)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.updateSummonerRankRecord(ctx, ids.SummonerId)
+	if err != nil {
+		return nil, err
+	}
+
+	return db.GetProfileSummary(ctx, name)
+}
+
 func (db *DB) GetProfileSummary(ctx context.Context, name RiotName) (*ProfileSummary, error) {
 	ids, err := db.GetAccount(ctx, name)
 	if err != nil {
@@ -173,12 +204,12 @@ func (db *DB) getProfileSummary(ctx context.Context, puuid RiotPuuid) (*ProfileS
 }
 
 type ProfileMatch struct {
-	MatchId      string        `db:"match_id"`
-	GameDate     time.Time     `db:"game_date"`
-	GameDuration time.Duration `db:"game_duration"`
-	GamePatch    string        `db:"game_patch"`
-	PlayerWin    bool          `db:"player_win"`
+	GameDate  time.Time `db:"game_date"`
+	MatchId   string    `db:"match_id"`
+	GamePatch string    `db:"game_patch"`
 	SummonerMatchPostGame
+	GameDuration time.Duration `db:"game_duration"`
+	PlayerWin    bool          `db:"player_win"`
 }
 
 func (m ProfileMatch) GetGamePatch() string {
@@ -203,7 +234,7 @@ func (m ProfileMatch) GetGameDate() string {
 }
 
 func (m ProfileMatch) GetGameDuration() string {
-	return m.GameDuration.String()
+	return fmt.Sprintf("%.0fm", m.GameDuration.Minutes())
 }
 
 type ProfileMatchList []*ProfileMatch
@@ -265,7 +296,17 @@ func (db *DB) getProfileMatchlist(ctx context.Context, puuid RiotPuuid, page int
 	OFFSET $2 LIMIT $3;
 	`, puuid.String(), start, count)
 
-	return pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[ProfileMatch])
+	matchlist, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[ProfileMatch])
+	if err != nil {
+		return nil, err
+	}
+
+	for _, m := range matchlist {
+		if !m.Ensure() {
+		}
+	}
+
+	return matchlist, nil
 }
 
 type ProfileMatchSummary struct {
@@ -323,28 +364,4 @@ func (db *DB) GetProfileMatchSummary(ctx context.Context, puuid, matchID string)
 	`, puuid, matchID)
 
 	return &m, nil
-}
-
-func (db *DB) UpdateProfile(ctx context.Context, name RiotName) error {
-	ids, err := db.GetAccount(ctx, name)
-	if err != nil {
-		return err
-	}
-
-	err = db.updateSummoner(ctx, ids.Puuid)
-	if err != nil {
-		return err
-	}
-
-	err = db.updateSummonerRankRecord(ctx, ids.SummonerId)
-	if err != nil {
-		return err
-	}
-
-	err = db.ensureMatchlist(ctx, ids.Puuid, 0, 20)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

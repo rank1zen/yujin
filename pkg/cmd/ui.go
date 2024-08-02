@@ -26,7 +26,7 @@ func UiCmd(ctx context.Context) *cobra.Command {
 				port, _ = strconv.Atoi(os.Getenv("YUJIN_PORT"))
 			}
 
-			logger := logging.NewLogger()
+			logger := logging.Get()
 			defer func() { logger.Sync() }()
 
 			db, err := database.NewDB(ctx, os.Getenv("YUJIN_POSTGRES_POOL_URL"))
