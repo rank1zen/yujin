@@ -1,4 +1,4 @@
-APP := miniflux
+APP := yujin
 BUILD_DATE := `date +%FT%T%z`
 
 .PHONY: \
@@ -10,7 +10,7 @@ BUILD_DATE := `date +%FT%T%z`
 	live/sync_assets
 
 yujin:
-	@ go build ./cmd/yujin -o $(APP)
+	@ go build -o $(APP) main.go
 
 templ:
 	@templ generate --watch
@@ -23,7 +23,7 @@ live/templ:
 
 live/server:
 	go run github.com/cosmtrek/air@v1.51.0 \
-		--build.cmd "go build -o tmp/bin/yujin ./cmd/yujin" \
+		--build.cmd "go build -o tmp/bin/yujin main.go" \
 		--build.bin "./tmp/bin/yujin ui" \
 		--build.delay "100" \
 		--build.exclude_dir "node_modules" \

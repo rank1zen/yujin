@@ -24,6 +24,16 @@ func (db *DB) ensureMatchlist(ctx context.Context, puuid RiotPuuid, start, count
 
 	batch := &pgx.Batch{}
 	for _, id := range ids {
+		var found bool
+		err := db.pool.QueryRow(ctx, "select 1 from match_info_records WHERE match_id = $1", id).Scan(&found)
+		if err != nil {
+			return err
+		}
+
+		if found {
+			continue
+		}
+
 		match, err := db.riot.GetMatch(ctx, id)
 		if err != nil {
 			return err

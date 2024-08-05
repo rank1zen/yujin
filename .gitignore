@@ -1,6 +1,5 @@
 *.envrc
-migrations/tern.conf
+
 node_modules/
-static/
 
 **/*_templ.go

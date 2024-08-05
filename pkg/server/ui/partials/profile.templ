@@ -2,12 +2,15 @@ package partials
 
 import "github.com/rank1zen/yujin/pkg/database"
 import "fmt"
+import "net/http"
+import "github.com/go-chi/chi/v5"
+import "github.com/rank1zen/yujin/pkg/http/request"
 
 templ ProfileSummary(m *database.ProfileSummary) {
 	<div class="">
 		<div class="flex">
 			<div class="rounded-sm">
-				<img class="rounded-lg border-4 border-black" src={ m.GetProfileIconUrl() }/>
+				<img class="rounded-lg border-4 border-black" src={ string(m.GetProfileIconUrl()) }/>
 			</div>
 			<div class="flex flex-col justify-evenly ml-4">
 				<h1 class="text-7xl">{ m.GetName() }</h1>
@@ -17,124 +20,142 @@ templ ProfileSummary(m *database.ProfileSummary) {
 	</div>
 }
 
-templ ProfileSummaryError() {
-	<div class="container flex flex-col items-center justify-center px-5 mx-auto my-8">
-		<img src="https://fonts.gstatic.com/s/i/materialicons/error_outline/v6/24px.svg"/>
-	</div>
-}
-
-templ ProfileMatchlist(matches *database.ProfileMatchListPage) {
+templ ProfileMatchlist(r *http.Request, m database.ProfileMatchList) {
 	<ul class="flex flex-col gap-2">
-		if matches.Count > 0 {
-			for i := range matches.Count {
-				<li class="flex hover:brightness-90 hover:bg-slate-50 rounded-md shadow">
-					@matchCard(matches.Matches[i])
-				</li>
-			}
-			if matches.HasMore() {
-				<li
-					hx-get={ fmt.Sprintf("/profile/%s/matchlist?page=%d", matches.Name.String(), matches.Page+1) }
-					hx-trigger="revealed"
-					hx-swap="afterend"
-				></li>
-			} else {
-				<li>
-					This is the end of the List!
-				</li>
-			}
+		if len(m) == 0 {
+			<div class="">
+				No more matches
+			</div>
 		} else {
-			<div>No Matches Found!</div>
+			for i := range len(m) {
+				<li class="flex hover:brightness-90 hover:bg-slate-50 rounded-md shadow">
+					@matchCard(m[i])
+				</li>
+			}
+			<div
+				hx-get={ fmt.Sprintf("/profile/%s/matchlist?page=%d", chi.URLParam(r, "name"), request.QueryIntParam(r, "page", 0)+1) }
+				hx-trigger="revealed"
+				hx-swap="afterend"
+			>a</div>
 		}
 	</ul>
 }
 
-// TODO: We can add different types of errors if we want
 templ ProfileMatchlistError() {
 	<div class="">
-		Error fetching matchlist.
-	</div>
-}
-
-templ ProfileMatchlistEndOfList() {
-	<div class="">
-		No more matches.
+		<div class="text-center">Error fetching matchlist.</div>
 	</div>
 }
 
 templ ProfileMatchSummary(m *database.ProfileMatchSummary) {
-	<div class="">
-		<div class="bg-red-50">
-			<table class="table-fixed text-sm">
-				<thead class="">
-					<tr>
-						<th class="pb-4 pl-10 text-left">Defeat (Blue Side)</th>
-						<th>KDA</th>
-						<th>Damage</th>
-						<th>Gold</th>
-						<th>CS</th>
-						<th>Wards</th>
-						<th>Items</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr class="">
-						<td class="px-4 pl-10">
-							<div class="flex">
-								<img src="https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png" class="size-10"/>
-								<div class="flex flex-col justify-evenly">
-									<p>Doublelift</p>
-									<p>Challenger</p>
-								</div>
+	<div class="w-full">
+		<div class="">
+			<div class="rounded-md shadow">
+				<div class="p-4">
+					<h class="font-bold block text-lg">NA1_5003179356</h>
+					<span class="block">2024-05-21</span>
+					<span class="block">5 minutes, 23 seconds</span>
+					<span class="block">Patch 14.15.1</span>
+					<div class="mt-8">
+						<h class="font-bold block text-lg">Post Game</h>
+						<div class="">
+							<div class="">
+								<table class="table-auto w-full text-xs">
+									<thead>
+										<tr>
+											<th class="text-left">Defeat (Blue Side)</th>
+											<th class="text-left">KDA</th>
+											<th class="text-left">Damage</th>
+											<th class="text-left">Gold</th>
+											<th class="text-left">CS</th>
+											<th class="text-left">Wards</th>
+											<th class="text-left">Items</th>
+										</tr>
+									</thead>
+									<tbody class="p-2">
+										for range 5 {
+											<tr class="">
+												<td class="">
+													<div class="flex">
+														<img src="https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png" class="size-10"/>
+														<div class="flex flex-col justify-evenly">
+															<p>Doublelift</p>
+															<p>Challenger</p>
+														</div>
+													</div>
+												</td>
+												<td class=""><div><div>3 / 10 / 3</div> <div>0.60</div></div></td>
+												<td class="pb-2"><div><div>22,268</div> </div> </td>
+												<td class="pb-2"><div><div>9.5k</div> </div> </td>
+												<td class="pb-2"><div><div>172</div> </div> </td>
+												<td class="pb-2"><div><div>9</div> </div> </td>
+												<td class="pb-2"><div><div>9.5k</div> </div> </td>
+											</tr>
+										}
+									</tbody>
+								</table>
+								<table class="table-auto text-xs mt-2 w-full">
+									<thead>
+										<tr>
+											<th class="text-left">Defeat (Red Side)</th>
+											<th class="text-left">KDA</th>
+											<th class="text-left">Damage</th>
+											<th class="text-left">Gold</th>
+											<th class="text-left">CS</th>
+											<th class="text-left">Wards</th>
+											<th class="text-left">Items</th>
+										</tr>
+									</thead>
+									<tbody class="p-2">
+										for range 5 {
+											<tr class="">
+												<td class="">
+													<div class="flex">
+														<img src="https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png" class="size-10"/>
+														<div class="flex flex-col justify-evenly">
+															<p>Doublelift</p>
+															<p>Challenger</p>
+														</div>
+													</div>
+												</td>
+												<td class=""><div><div>3 / 10 / 3</div> <div>0.60</div></div></td>
+												<td class="pb-2"><div><div>22,268</div> </div> </td>
+												<td class="pb-2"><div><div>9.5k</div> </div> </td>
+												<td class="pb-2"><div><div>172</div> </div> </td>
+												<td class="pb-2"><div><div>9</div> </div> </td>
+												<td class="pb-2"><div><div>9.5k</div> </div> </td>
+											</tr>
+										}
+									</tbody>
+								</table>
 							</div>
-						</td>
-						<td class="px-4">
-							<div>
-								<div>3 / 10 / 3</div>
-								<div>0.60 KDA</div>
+						</div>
+					</div>
+					<div class="mt-8">
+						<h class="font-bold block text-lg">Runes</h>
+						<div>
+							<div class="flex place-items-center gap-2">
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PressTheAttack/PressTheAttack.png"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
 							</div>
-						</td>
-						<td>
-							<div>
-								<div>22,268</div>
-							</div>
-						</td>
-						<td>
-							<div>
-								<div>9.5k</div>
-							</div>
-						</td>
-						<td>
-							<div>
-								<div>172</div>
-							</div>
-						</td>
-						<td>
-							<div>
-								<div>9</div>
-							</div>
-						</td>
-						<td>
-							<div>
-								<div>9.5k</div>
-							</div>
-						</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-		<div>
-			<div class="flex place-items-center gap-2">
-				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PressTheAttack/PressTheAttack.png"/>
-				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
-				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
-				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
-				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
-				<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+						</div>
+					</div>
+					<div class="mt-8"><h class="font-bold block">Skill Order</h></div>
+					<div class="mt-8"><h class="font-bold block">Items</h></div>
+					<div class="mt-8"><h class="font-bold block">Timeline</h></div>
+				</div>
 			</div>
 		</div>
-		<div>
-			<div class="grid grid-18 grid-rows-4"></div>
-		</div>
+	</div>
+}
+
+templ ProfileMatchSummaryError() {
+	<div>
+		<div class="text-center">Could not fetch match</div>
 	</div>
 }
 
@@ -192,15 +213,15 @@ templ matchCard(m *database.ProfileMatch) {
 				<span class="text-sm font-medium block">{ m.GetGameDuration() } </span>
 			</div>
 			<div class="col-span-2 row-span-2">
-				<img src={ m.GetChampionIconUrl() } class="size-full rounded-md"/>
+				<img src={ string(m.GetChampionIconUrl()) } class="size-full rounded-md"/>
 			</div>
 			for i := range 2 {
 				<div class="">
-					<img src={ m.GetSpellIconsUrls()[i] } class="size-full rounded"/>
+					<img src={ string(m.GetSpellIconsUrls()[i]) } class="size-full rounded"/>
 				</div>
 			}
 			<div class="col-span-2 row-span-2">
-				<img src={ m.GetChampionIconUrl() } class="size-full rounded-md"/>
+				<img src={ string(m.GetChampionIconUrl()) } class="size-full rounded-md"/>
 			</div>
 			<div class="row-span-2 col-span-3 truncate justify-between pr-4 pl-2">
 				<span class="text-sm font-medium block">
@@ -215,7 +236,7 @@ templ matchCard(m *database.ProfileMatch) {
 			</div>
 			for i := range 6 {
 				<div class="shadow-xl">
-					<img src={ m.GetItemIconUrls()[i] } class="size-full rounded"/>
+					<img src={ string(m.GetItemIconUrls()[i]) } class="size-full rounded"/>
 				</div>
 			}
 		</div>

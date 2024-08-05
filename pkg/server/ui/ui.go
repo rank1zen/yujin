@@ -3,8 +3,6 @@ package ui
 import (
 	"context"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,12 +12,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/rank1zen/yujin/pkg/database"
 	"github.com/rank1zen/yujin/pkg/http/request"
+	"github.com/rank1zen/yujin/pkg/http/response/html"
 	"github.com/rank1zen/yujin/pkg/logging"
 	"github.com/rank1zen/yujin/pkg/server/ui/pages"
 	"github.com/rank1zen/yujin/pkg/server/ui/partials"
+	"github.com/rank1zen/yujin/pkg/server/ui/static"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+var c = []struct {
+	string
+	int
+}{
+	{"a", 1},
+}
 
 func Routes(db *database.DB, logger *zap.Logger) *chi.Mux {
 	router := chi.NewRouter()
@@ -29,82 +36,99 @@ func Routes(db *database.DB, logger *zap.Logger) *chi.Mux {
 	router.Use(middleware.Recoverer)
 
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		logger := logging.FromContext(ctx)
+
+		logger.Warn(r.URL.String())
 		templ.Handler(pages.NotFound(), templ.WithStatus(http.StatusNotFound)).ServeHTTP(w, r)
 	})
 
-	workDir, _ := os.Getwd()
-	filesDir := http.Dir(filepath.Join(workDir, "static"))
-	FileServer(router, "/static", filesDir)
+	for _, handler := range []struct {
+		path string
+		fn   http.HandlerFunc
+	}{
+		{
+			path: "/static/*",
+			fn: func(w http.ResponseWriter, r *http.Request) {
+				rctx := chi.RouteContext(r.Context())
+				pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+				fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(static.StylesheetFiles)))
+				fs.ServeHTTP(w, r)
+			},
+		},
+		{
+			path: "/",
+			fn: func(w http.ResponseWriter, r *http.Request) {
+				html.OK(w, r, pages.About())
+			},
+		},
+		{
+			path: "/profile/{name}",
+			fn: func(w http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
 
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		templ.Handler(pages.About(), templ.WithStatus(200)).ServeHTTP(w, r)
-	})
+				nameParam := chi.URLParam(r, "name")
+				name, err := database.ParseRiotName(nameParam)
+				if err != nil {
+					html.BadRequest(w, r, pages.NotFound(), err)
+				}
 
-	router.Get("/profile/{name}", func(w http.ResponseWriter, r *http.Request) {
-		fn := func() *templ.ComponentHandler {
-			ctx := r.Context()
+				profile, err := db.UpdateProfileSummary(ctx, name)
+				if err != nil {
+					html.ServerError(w, r, pages.ProfileNotFound(name), err)
+				}
 
-			logger := logging.FromContext(ctx)
-			nameParam := chi.URLParam(r, "name")
+				html.OK(w, r, pages.Profile(r, profile))
+			},
+		},
+		{
+			path: "/profile/{name}/matchlist",
+			fn: func(w http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
 
-			name, err := database.ParseRiotName(nameParam)
-			if err != nil {
-				logger.Warn(http.StatusText(http.StatusBadRequest), zap.Error(err))
-				return templ.Handler(pages.NotFound(), templ.WithStatus(http.StatusBadRequest))
-			}
+				name, err := database.ParseRiotName(chi.URLParam(r, "name"))
+				if err != nil {
+					html.BadRequest(w, r, partials.ProfileMatchSummaryError(), err)
+					return
+				}
 
-			profile, err := db.UpdateProfileSummary(ctx, name)
-			if err != nil {
-				logger.Warn(http.StatusText(http.StatusBadRequest), zap.Error(err))
-				return templ.Handler(pages.ProfileNotFound(name), templ.WithStatus(http.StatusInternalServerError))
-			}
+				page := request.QueryIntParam(r, "page", 10)
+				matches, err := db.GetProfileMatchList(ctx, name, page)
+				if err != nil {
+					html.ServerError(w, r, partials.ProfileMatchlistError(), err)
+					return
+				}
 
-			return templ.Handler(pages.Profile(r, profile), templ.WithStatus(http.StatusOK))
-		}
+				html.OK(w, r, partials.ProfileMatchlist(r, matches))
+			},
+		},
+		{
+			path: "/profile/{name}/matchlist/{matchid}",
+			fn: func(w http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
 
-		fn().ServeHTTP(w, r)
-	})
+				name, err := database.ParseRiotName(chi.URLParam(r, "name"))
+				if err != nil {
+					html.BadRequest(w, r, partials.ProfileMatchSummaryError(), err)
+					return
+				}
 
-	router.Get("/profile/{name}/matchlist", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+				matchId := database.RiotMatchId(chi.URLParam(r, "matchid"))
+				match, err := db.GetProfileMatchSummary(ctx, name, matchId)
+				if err != nil {
+					html.ServerError(w, r, partials.ProfileMatchSummary(match), err)
+					return
+				}
 
-		name, err := database.ParseRiotName(chi.URLParam(r, "name"))
-		if err != nil {
-			templ.Handler(partials.ProfileMatchlistError(), templ.WithStatus(http.StatusBadRequest)).ServeHTTP(w, r)
-			return
-		}
-
-		page := request.QueryIntParam(r, "page", 10)
-
-		matches, err := db.GetProfileMatchList(ctx, name, page)
-		if err != nil {
-			templ.Handler(partials.ProfileMatchlistError(), templ.WithStatus(http.StatusInternalServerError)).ServeHTTP(w, r)
-			return
-		}
-
-		templ.Handler(partials.ProfileMatchlist(matches), templ.WithStatus(http.StatusOK)).ServeHTTP(w, r)
-	})
+				html.OK(w, r, partials.ProfileMatchSummary(match))
+			},
+		},
+	} {
+		router.Get(handler.path, handler.fn)
+	}
 
 	return router
-}
-
-func FileServer(r chi.Router, path string, root http.FileSystem) {
-	if strings.ContainsAny(path, "{}*") {
-		panic("FileServer does not permit any URL parameters.")
-	}
-
-	if path != "/" && path[len(path)-1] != '/' {
-		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
-		path += "/"
-	}
-	path += "*"
-
-	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
-		rctx := chi.RouteContext(r.Context())
-		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
-		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
-		fs.ServeHTTP(w, r)
-	})
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {

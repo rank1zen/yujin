@@ -1,8 +1,10 @@
 package database
 
 import (
+	"context"
 	"time"
 
+	"github.com/a-h/templ"
 	"github.com/jackc/pgx/v5"
 	"github.com/rank1zen/yujin/pkg/riot"
 )
@@ -46,4 +48,42 @@ type MatchSkillEvent struct {
 	Timestamp     time.Duration `db:"timestamp"`
 	ParticipantID int
 	ItemID        int
+}
+
+type SummonerMatchItemEvent struct {
+	MatchId       RiotMatchId
+	Timestamp     time.Duration
+	ParticipantId int
+	ItemId        int
+}
+
+func (m SummonerMatchItemEvent) GetItemIconUrl() {}
+
+type SummonerMatchKillEvent struct{}
+
+type SummonerMatchSkillEvent struct {
+	MatchId       RiotMatchId   `db:"match_id"`
+	Timestamp     time.Duration `db:"timestamp"`
+	ParticipantId int           `db:"participant_id"`
+	SkillSlot     int           `db:"skill_slot"`
+}
+
+func (m SummonerMatchSkillEvent) GetItemIconUrl() templ.SafeURL {
+	// FIXME: Please
+	return templ.URL("a")
+}
+
+func (m SummonerMatchSkillEvent) GetTimestamp() string {
+	return m.Timestamp.String()
+}
+
+type SummonerMatchSkillEventList []*SummonerMatchSkillEvent
+
+func (db *DB) get(ctx context.Context, matchID RiotMatchId, puuid RiotPuuid) ([]MatchItemEvent, error) {
+	querySelect(ctx, db.pool, `
+	SELECT * FROM match_spell_event_records
+	WHERE match_id = $1 AND participant_id = $2,
+	`, []any{matchID, puuid}, pgx.RowToStructByNameLax[string])
+
+	return nil, nil
 }

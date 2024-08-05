@@ -25,7 +25,7 @@ templ base(title string) {
 
 templ basePage(title string) {
 	@base(title) {
-		<div class="max-w-5xl mx-auto pt-8">
+		<div class="max-w-6xl mx-auto px-8 my-8">
 			{ children... }
 		</div>
 	}
@@ -36,26 +36,39 @@ templ Profile(r *http.Request, m *database.ProfileSummary) {
 		<div class="">
 			<div class="flex flex-col">
 				<div class="rounded-sm size-20">
-					<img class="rounded-md shadow-lg" src={ m.GetProfileIconUrl() }/>
+					<img class="rounded-md shadow" src={ string(m.GetProfileIconUrl()) }/>
 				</div>
 				<div class="flex flex-col">
 					<h1 class="text-7xl font-bold">{ m.GetName() }</h1>
-					<p class="text-4xl pt-4">
+					<p class="text-4xl mt-4">
 						<span>{ m.GetRank() } </span>
 						<span>{ m.GetLp() } </span>
 						<span>{ m.GetWinLoss() } </span>
 					</p>
 				</div>
+				<div class="mt-2">
+					<ul class="border-b border-slate-200 flex">
+						<li>
+							<h2>
+								<a class="py-2" href={ templ.URL(fmt.Sprintf("/profile/%s", chi.URLParam(r, "name"))) }>Match History</a>
+							</h2>
+						</li>
+						<li class="ml-4">
+							<h2>
+								<a class="py-2" href={ templ.URL(fmt.Sprintf("/profile/%s", chi.URLParam(r, "name"))) }>Rank History</a>
+							</h2>
+						</li>
+					</ul>
+				</div>
 			</div>
-			<div class="flex pt-12">
-				<div
-					hx-trigger="load"
-					hx-get={ fmt.Sprintf("/profile/%s/matchlist?page=0", chi.URLParam(r, "name")) }
-				>
+			<div class="grid grid-cols-2 w-full mt-10 gap-4">
+				// hx-trigger="load"
+				// hx-get={ fmt.Sprintf("/profile/%s/matchlist?page=0", chi.URLParam(r, "name")) }
+				<div>
 					<ul class="flex flex-col gap-2">
 						for range 15 {
 							<li class="flex rounded-md shadow">
-								<div class="animate-pulse py-4 pr-6 pl-4">
+								<div class="animate-pulse mx-auto my-4">
 									<div class="grid grid-flow-col grid-cols-[repeat(14,26px)] grid-rows-[repeat(2,26px)] gap-1">
 										<div class="row-span-2 col-span-3 grid grid-cols-3 grid-rows-3 gap-2 pr-4 pl-2">
 											<div class="rounded-full bg-slate-200 col-span-3"></div>
@@ -82,109 +95,6 @@ templ Profile(r *http.Request, m *database.ProfileSummary) {
 							</li>
 						}
 					</ul>
-				</div>
-				<div class="ml-4 w-full">
-					<div class="">
-						<div class="rounded-md shadow">
-							<div class="p-4">
-								<h class="font-bold block text-lg">NA1_5003179356</h>
-								<span class="block">2024-05-21</span>
-								<span class="block">5 minutes, 23 seconds</span>
-								<span class="block">Patch 14.15.1</span>
-								<div class="mt-8">
-									<h class="font-bold block text-lg">Post Game</h>
-									<div class="">
-										<div class="">
-											<table class="table-auto w-full text-sm">
-												<thead>
-													<tr>
-														<th class="text-left">Defeat (Blue Side)</th>
-														<th class="text-left">KDA</th>
-														<th class="text-left">Damage</th>
-														<th class="text-left">Gold</th>
-														<th class="text-left">CS</th>
-														<th class="text-left">Wards</th>
-														<th class="text-left">Items</th>
-													</tr>
-												</thead>
-												<tbody class="p-2">
-													for range 5 {
-														<tr class="">
-															<td class="">
-																<div class="flex">
-																	<img src="https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png" class="size-10"/>
-																	<div class="flex flex-col justify-evenly">
-																		<p>Doublelift</p>
-																		<p>Challenger</p>
-																	</div>
-																</div>
-															</td>
-															<td class=""><div><div>3 / 10 / 3</div> <div>0.60</div></div></td>
-															<td class="pb-2"><div><div>22,268</div> </div> </td>
-															<td class="pb-2"><div><div>9.5k</div> </div> </td>
-															<td class="pb-2"><div><div>172</div> </div> </td>
-															<td class="pb-2"><div><div>9</div> </div> </td>
-															<td class="pb-2"><div><div>9.5k</div> </div> </td>
-														</tr>
-													}
-												</tbody>
-											</table>
-											<table class="table-fixed text-sm mt-2 w-full">
-												<thead>
-													<tr>
-														<th class="text-left">Defeat (Red Side)</th>
-														<th class="text-left">KDA</th>
-														<th class="text-left">Damage</th>
-														<th class="text-left">Gold</th>
-														<th class="text-left">CS</th>
-														<th class="text-left">Wards</th>
-														<th class="text-left">Items</th>
-													</tr>
-												</thead>
-												<tbody class="p-2">
-													for range 5 {
-														<tr class="">
-															<td class="">
-																<div class="flex">
-																	<img src="https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png" class="size-10"/>
-																	<div class="flex flex-col justify-evenly">
-																		<p>Doublelift</p>
-																		<p>Challenger</p>
-																	</div>
-																</div>
-															</td>
-															<td class=""><div><div>3 / 10 / 3</div> <div>0.60</div></div></td>
-															<td class="pl-2 pb-2"><div><div>22,268</div> </div> </td>
-															<td class="pl-2 pb-2"><div><div>9.5k</div> </div> </td>
-															<td class="pl-2 pb-2"><div><div>172</div> </div> </td>
-															<td class="pl-2 pb-2"><div><div>9</div> </div> </td>
-															<td class="pl-2 pb-2"><div><div>9.5k</div> </div> </td>
-														</tr>
-													}
-												</tbody>
-											</table>
-										</div>
-									</div>
-								</div>
-								<div class="mt-8">
-									<h class="font-bold block text-lg">Runes</h>
-									<div>
-										<div class="flex place-items-center gap-2">
-											<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PressTheAttack/PressTheAttack.png"/>
-											<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
-											<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
-											<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
-											<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
-											<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
-										</div>
-									</div>
-								</div>
-								<div class="mt-8"><h class="font-bold block">Skill Order</h></div>
-								<div class="mt-8"><h class="font-bold block">Items</h></div>
-								<div class="mt-8"><h class="font-bold block">Timeline</h></div>
-							</div>
-						</div>
-					</div>
 				</div>
 			</div>
 		</div>

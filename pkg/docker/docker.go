@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/tern/v2/migrate"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	"github.com/rank1zen/yujin/pkg/logging"
 )
 
 const (
@@ -102,69 +101,15 @@ func NewPostgres() (*pgx.Conn, func()) {
 		log.Fatalf("failed to connect to databse: %v", err)
 	}
 
-	err = migrateDB(ctx, conn)
-	if err != nil {
-		log.Fatalf("failed to migrate databse: %v", err)
-	}
+	// err = migrateDB(ctx, conn)
+	// if err != nil {
+	// 	log.Fatalf("failed to migrate databse: %v", err)
+	// }
 
 	return conn, func() {
 		conn.Close(ctx)
 		pool.Purge(container)
 	}
-}
-
-func NewPostgresWithVolume(ctx context.Context) (*url.URL, func()) {
-	logger := logging.FromContext(ctx).Sugar()
-
-	opts := &dockertest.RunOptions{
-		Repository: postgresImage,
-		Tag:        postgresTag,
-		Env: []string{
-			"POSTGRES_DB=" + databaseName,
-			"POSTGRES_USER=" + databaseUser,
-			"POSTGRES_PASSWORD=" + databasePassword,
-		},
-		Mounts: []string{"my_volume:/var/lib/postgresql/data"},
-	}
-
-	container := newPostgresContainer(ctx, opts, WithRemove())
-	container.Expire(180) // error handling?
-
-	connUrl := &url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(databaseUser, databasePassword),
-		Host:     container.GetHostPort("5432/tcp"),
-		Path:     databaseName,
-		RawQuery: "sslmode=disable",
-	}
-
-	time.Sleep(5 * time.Second)
-
-	conn, err := pgx.Connect(ctx, connUrl.String())
-	if err != nil {
-		logger.Fatalf("failed to connect to databse: %v", err)
-	}
-
-	err = migrateDB(ctx, conn)
-	if err != nil {
-		logger.Fatalf("failed to migrate databse: %v", err)
-	}
-
-	return connUrl, func() {
-		pool.Purge(container)
-	}
-}
-
-func newPostgresContainer(ctx context.Context, opts *dockertest.RunOptions, hcOpts ...func(*docker.HostConfig)) *dockertest.Resource {
-	logger := logging.FromContext(ctx).Sugar()
-
-	logger.Infof("running docker container: %s:%s", postgresImage, postgresTag)
-	container, err := pool.RunWithOptions(opts, hcOpts...)
-	if err != nil {
-		logger.Fatal("failed to start postgres container: %w", err)
-	}
-
-	return container
 }
 
 // WithRemove configures Docker to remove container when it terminates

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/a-h/templ"
 	"github.com/jackc/pgx/v5"
+	"github.com/rank1zen/yujin/pkg/ddragon"
 )
 
 type SummonerMatchPostGame struct {
@@ -23,38 +25,38 @@ type SummonerMatchPostGame struct {
 	RuneSecondary int    `db:"rune_secondary_path"`
 }
 
-func (m SummonerMatchPostGame) GetChampionIconUrl() string {
-	return "https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png"
+func (m SummonerMatchPostGame) GetChampionIconUrl() templ.SafeURL {
+	return ddragon.GetChampionIconUrl("Akali")
 }
 
-func (m SummonerMatchPostGame) GetSpellIconsUrls() []string {
-	return []string{
-		"https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png",
-		"https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png",
+func (m SummonerMatchPostGame) GetSpellIconsUrls() []templ.SafeURL {
+	u := make([]templ.SafeURL, 2)
+	for i := range 2 {
+		u = append(u, ddragon.GetSummonerSpellUrl(m.SummonerSpell[i]))
 	}
+
+	return u
 }
 
-func (m SummonerMatchPostGame) GetItemIconUrls() []string {
-	return []string{
-		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[0]),
-		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[1]),
-		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[2]),
-		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[3]),
-		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[4]),
-		fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/%d.png", m.Items[5]),
+func (m SummonerMatchPostGame) GetItemIconUrls() []templ.SafeURL {
+	u := make([]templ.SafeURL, 6)
+	for i := range 6 {
+		u = append(u, ddragon.GetItemIconUrl(m.Items[i]))
 	}
+
+	return u
 }
 
-func (m SummonerMatchPostGame) GetRunePrimaryUrl() string {
-	return ""
+func (m SummonerMatchPostGame) GetRunePrimaryUrl() templ.SafeURL {
+	return ddragon.GetRuneIconUrl()
 }
 
-func (m SummonerMatchPostGame) GetRuneSecondaryUrl() string {
-	return ""
+func (m SummonerMatchPostGame) GetRuneSecondaryUrl() templ.SafeURL {
+	return ddragon.GetRuneIconUrl()
 }
 
 func (m SummonerMatchPostGame) GetRank() string {
-	return "https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/871.png"
+	return "Work on"
 }
 
 func (m SummonerMatchPostGame) GetKda() string {
@@ -110,12 +112,28 @@ type ProfileSummary struct {
 	Name           RiotName
 }
 
-func (m ProfileSummary) GetProfileIconUrl() string {
-	return fmt.Sprintf("https://ddragon.leagueoflegends.com/cdn/14.13.1/img/profileicon/%d.png", m.ProfileIconId)
+func (m ProfileSummary) GetProfileIconUrl() templ.SafeURL {
+	return ddragon.GetSummonerProfileIconUrl(m.ProfileIconId)
 }
 
 func (m ProfileSummary) GetSummonerLevel() string {
 	return fmt.Sprintf("%d", m.SummonerLevel)
+}
+
+func (m ProfileSummary) GetWins() string {
+	if m.NumberWins == nil {
+		return "0"
+	}
+
+	return string(*m.NumberWins)
+}
+
+func (m ProfileSummary) GetLosses() string {
+	if m.NumberLosses == nil {
+		return "0"
+	}
+
+	return string(*m.NumberLosses)
 }
 
 func (m ProfileSummary) GetWinLoss() string {
@@ -239,34 +257,27 @@ func (m ProfileMatch) GetGameDuration() string {
 
 type ProfileMatchList []*ProfileMatch
 
-type ProfileMatchListPage struct {
-	Page    int
-	Count   int
-	Name    RiotName
-	Matches ProfileMatchList
-}
-
-func (p *ProfileMatchListPage) HasMore() bool {
-	return true
-}
-
-func (db *DB) GetProfileMatchList(ctx context.Context, name RiotName, page int) (*ProfileMatchListPage, error) {
+func (db *DB) UpdateProfileMatchlist(ctx context.Context, name RiotName, page int) (ProfileMatchList, error) {
 	ids, err := db.GetAccount(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 
-	matches, err := db.getProfileMatchlist(ctx, ids.Puuid, page)
+	err = db.ensureMatchlist(ctx, ids.Puuid, 10*page, 10)
 	if err != nil {
-		return nil, fmt.Errorf("getProfileMatchlist: %w", err)
+		return nil, err
 	}
 
-	return &ProfileMatchListPage{
-		Page:    page,
-		Count:   len(matches),
-		Name:    name,
-		Matches: matches,
-	}, nil
+	return db.getProfileMatchlist(ctx, ids.Puuid, page)
+}
+
+func (db *DB) GetProfileMatchList(ctx context.Context, name RiotName, page int) (ProfileMatchList, error) {
+	ids, err := db.GetAccount(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return db.getProfileMatchlist(ctx, ids.Puuid, page)
 }
 
 func (db *DB) getProfileMatchlist(ctx context.Context, puuid RiotPuuid, page int) (ProfileMatchList, error) {
@@ -289,21 +300,14 @@ func (db *DB) getProfileMatchlist(ctx context.Context, puuid RiotPuuid, page int
 		vision_score,
 		items_arr,
 		spells_arr
-	FROM
-		match_summoner_postgame
-	WHERE
-		puuid = $1
+	FROM match_summoner_postgame
+	WHERE puuid = $1
 	OFFSET $2 LIMIT $3;
 	`, puuid.String(), start, count)
 
 	matchlist, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[ProfileMatch])
 	if err != nil {
 		return nil, err
-	}
-
-	for _, m := range matchlist {
-		if !m.Ensure() {
-		}
 	}
 
 	return matchlist, nil
@@ -319,8 +323,16 @@ type ProfileMatchSummary struct {
 
 type ProfileMatchSummaryList []*ProfileMatchSummary
 
-// TODO
-func (db *DB) GetProfileMatchSummary(ctx context.Context, puuid, matchID string) (*ProfileMatchSummary, error) {
+func (db *DB) GetProfileMatchSummary(ctx context.Context, name RiotName, matchID RiotMatchId) (*ProfileMatchSummary, error) {
+	ids, err := db.GetAccount(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return db.getProfileMatchSummary(ctx, ids.Puuid, matchID)
+}
+
+func (db *DB) getProfileMatchSummary(ctx context.Context, puuid RiotPuuid, matchID RiotMatchId) (*ProfileMatchSummary, error) {
 	var m ProfileMatchSummary
 
 	rows, _ := db.pool.Query(ctx, `

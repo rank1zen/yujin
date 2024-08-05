@@ -19,7 +19,7 @@ type DB struct {
 func NewDB(ctx context.Context, url string) (*DB, error) {
 	pgxCfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse postgres connection string: %w", err)
+		return nil, fmt.Errorf("postgres connection string: %w", err)
 	}
 
 	pgxCfg.BeforeAcquire = func(ctx context.Context, conn *pgx.Conn) bool {
@@ -30,7 +30,7 @@ func NewDB(ctx context.Context, url string) (*DB, error) {
 
 	pool, err := pgxpool.NewWithConfig(ctx, pgxCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
+		return nil, fmt.Errorf("connecting to postgres: %w", err)
 	}
 
 	err = pool.Ping(ctx)
