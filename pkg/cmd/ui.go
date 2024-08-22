@@ -36,7 +36,7 @@ func UiCmd(ctx context.Context) *cobra.Command {
 
 			defer db.Close()
 
-			ui := ui.Routes(db, logger)
+			ui := ui.Routes(db)
 			go func() { http.ListenAndServe(fmt.Sprintf(":%d", port), ui) }()
 
 			logger.Info("started ui", zap.Int("port", port))

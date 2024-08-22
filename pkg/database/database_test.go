@@ -2,142 +2,104 @@ package database
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
+	"log"
 	"os"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rank1zen/yujin/pkg/docker"
-	"github.com/rank1zen/yujin/pkg/logging"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/rank1zen/yujin/pkg/database/migrate"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
-var conn *pgx.Conn
-var mu sync.Mutex
+var (
+	container *postgres.PostgresContainer
+	dburl     string
+)
+
+const (
+	dbname = "testing"
+	dbuser = "yuijn"
+	dbpass = "secret"
+)
 
 func TestMain(m *testing.M) {
-	var purge func()
-	conn, purge = docker.NewPostgres()
-	defer purge()
+	ctx := context.Background()
+
+	opts := []testcontainers.ContainerCustomizer{
+		postgres.WithDatabase(dbname),
+		postgres.WithUsername(dbuser),
+		postgres.WithPassword(dbpass),
+		postgres.BasicWaitStrategies(),
+		postgres.WithSQLDriver("pgx"),
+	}
+
+	var err error
+	container, err = postgres.Run(ctx, "docker.io/postgres:13-alpine", opts...)
+	if err != nil {
+		log.Fatalf("running postgres container: %s", err)
+	}
+
+	dburl, err = container.ConnectionString(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pgxconn, err := pgx.Connect(ctx, dburl)
+	if err != nil {
+		log.Fatalf("migration conn: %s", err)
+	}
+
+	err = migrate.Migrate(ctx, pgxconn)
+	if err != nil {
+		log.Fatalf("migrating: %s", err)
+	}
+
+	err = container.Snapshot(ctx, postgres.WithSnapshotName("test-snapshot"))
+	if err != nil {
+		log.Fatalf("creating snapshot: %s", err)
+	}
+
+	pgxconn.Close(ctx)
 
 	code := m.Run()
+
+	err = container.Terminate(ctx)
+	if err != nil {
+		log.Fatalf("terminating: %s", err)
+	}
+
 	os.Exit(code)
 }
 
 func setupDB(tb testing.TB) *DB {
-	tb.Helper()
-
 	ctx := context.Background()
 
-	b := make([]byte, 4)
-	_, err := rand.Read(b)
+	db, err := NewDB(ctx, dburl)
 	if err != nil {
-		tb.Fatalf("bytes: %v", err)
-	}
-
-	randName := hex.EncodeToString(b)
-
-	// postgres does not allow parallel database creation
-	mu.Lock()
-	defer mu.Unlock()
-	_, err = conn.Exec(ctx, fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s";`, randName, conn.Config().Database))
-	if err != nil {
-		tb.Fatalf("failed to clone db: %v", err)
-	}
-
-	newCfg := conn.Config()
-	newCfg.Database = randName
-
-	db, err := NewDB(ctx, newCfg.ConnString())
-	if err != nil {
-		tb.Fatalf("failed to connect db: %v", err)
+		tb.Fatal(err)
 	}
 
 	tb.Cleanup(func() {
-		ctx := context.Background()
-
 		db.Close()
 
-		mu.Lock()
-		defer mu.Unlock()
-		_, err := conn.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE);`, randName))
+		err := container.Restore(ctx)
 		if err != nil {
-			tb.Errorf("failed to drop cloned db: %v", err)
+			tb.Fatal(err)
 		}
 	})
 
 	return db
 }
 
-func NewPool(tb testing.TB) *pgxpool.Pool {
-	tb.Helper()
-
+func TestUpdateProfile(t *testing.T) {
 	ctx := context.Background()
 
-	b := make([]byte, 4)
-	_, err := rand.Read(b)
-	if err != nil {
-		tb.Fatalf("bytes: %v", err)
-	}
+	db := setupDB(t)
 
-	randName := hex.EncodeToString(b)
-
-	// postgres does not allow parallel database creation
-	mu.Lock()
-	defer mu.Unlock()
-	_, err = conn.Exec(ctx, fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s";`, randName, conn.Config().Database))
-	if err != nil {
-		tb.Fatalf("failed to clone db: %v", err)
-	}
-
-	newCfg := conn.Config()
-	newCfg.Database = randName
-
-	poolCfg, err := pgxpool.ParseConfig(newCfg.ConnString())
-	if err != nil {
-		tb.Fatal(err)
-	}
-
-	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
-	if err != nil {
-		tb.Fatalf("failed to connect db: %s", err)
-	}
-
-	tb.Cleanup(func() {
-		ctx := context.Background()
-
-		pool.Close()
-
-		mu.Lock()
-		defer mu.Unlock()
-
-		_, err := conn.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE);`, conn.Config().Database))
-		if err != nil {
-			tb.Errorf("failed to drop cloned db: %v", err)
-		}
-	})
-
-	return pool
-}
-
-func testingContext(tb testing.TB) context.Context {
-	ctx := context.Background()
-	return logging.WithContext(ctx, logging.NewTestLogger(tb))
-}
-
-func TestDockerConn(t *testing.T) {
-	t.Parallel()
-
-	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
-	defer cancel()
-
-	db := NewPool(t)
-
-	err := db.Ping(ctx)
+	err := db.UpdateProfile(ctx, "orrange-na1")
 	assert.NoError(t, err)
 }

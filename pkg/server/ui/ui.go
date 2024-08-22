@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -21,14 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var c = []struct {
-	string
-	int
-}{
-	{"a", 1},
-}
-
-func Routes(db *database.DB, logger *zap.Logger) *chi.Mux {
+func Routes(db *database.DB) *chi.Mux {
 	router := chi.NewRouter()
 
 	router.Use(middleware.NoCache)
@@ -49,8 +43,8 @@ func Routes(db *database.DB, logger *zap.Logger) *chi.Mux {
 		fn   http.HandlerFunc
 	}{
 		{
-			path: "/static/*",
-			fn: func(w http.ResponseWriter, r *http.Request) {
+			"/static/*",
+			func(w http.ResponseWriter, r *http.Request) {
 				rctx := chi.RouteContext(r.Context())
 				pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
 				fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(static.StylesheetFiles)))
@@ -74,12 +68,34 @@ func Routes(db *database.DB, logger *zap.Logger) *chi.Mux {
 					html.BadRequest(w, r, pages.NotFound(), err)
 				}
 
-				profile, err := db.UpdateProfileSummary(ctx, name)
+				profile, err := db.GetProfileSummary(ctx, name)
 				if err != nil {
 					html.ServerError(w, r, pages.ProfileNotFound(name), err)
 				}
 
 				html.OK(w, r, pages.Profile(r, profile))
+			},
+		},
+		{
+			"/profile/{name}/update",
+			func(w http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
+
+				nameParam := chi.URLParam(r, "name")
+				name, err := database.ParseRiotName(nameParam)
+				if err != nil {
+					html.BadRequest(w, r, pages.NotFound(), err)
+				}
+
+				profile, err := db.UpdateProfileSummary(ctx, name)
+				if err != nil {
+					html.ServerError(w, r, nil, fmt.Errorf("updating summary: %w", err))
+				}
+
+				matchlist, err := db.UpdateProfileMatchlist(ctx, name, 0)
+				if err != nil {
+					html.ServerError(w, r, nil)
+				}
 			},
 		},
 		{

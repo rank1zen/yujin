@@ -17,28 +17,16 @@ func findSoloqRank(entries riot.LeagueEntryList) *riot.LeagueEntry {
 	return nil
 }
 
-func (db *DB) updateSummonerRankRecord(ctx context.Context, summonerID RiotSummonerId) error {
-	entries, err := db.riot.GetLeagueEntriesForSummoner(ctx, summonerID.String())
-	if err != nil {
-		return err
+func (db *DB) updateSummonerRankRecord(ctx context.Context, m *riot.LeagueEntry) error {
+	row := map[string]any{
+		"summoner_id":             m.SummonerId,
+		"league_id":     m.LeagueId,
+		"tier":          m.Tier,
+		"division":      m.Rank,
+		"league_points": m.LeaguePoints,
+		"number_wins":   m.Wins,
+		"number_losses": m.Losses,
 	}
 
-	row := map[string]any{"summoner_id": summonerID.String()}
-
-	soloq := findSoloqRank(entries)
-	if soloq != nil {
-		row["league_id"] = soloq.LeagueId
-		row["tier"] = soloq.Tier
-		row["division"] = soloq.Rank
-		row["league_points"] = soloq.LeaguePoints
-		row["number_wins"] = soloq.Wins
-		row["number_losses"] = soloq.Losses
-	}
-
-	err = queryInsertRow(ctx, db.pool, "league_records", row)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return queryInsertRow(ctx, db.pool, "league_records", row)
 }

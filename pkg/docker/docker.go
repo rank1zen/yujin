@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -26,16 +25,13 @@ const (
 	postgresTag   = "13-alpine"
 )
 
-var (
-	pool *dockertest.Pool
-	once sync.Once
-)
+var pool *dockertest.Pool
 
 func init() {
 	var err error
 	pool, err = dockertest.NewPool("")
 	if err != nil {
-		log.Fatalf("failed to connect to Docker: %v", err)
+		log.Fatalf("connecting to docker: %v", err)
 	}
 }
 
@@ -68,20 +64,24 @@ func NewPostgres() (*pgx.Conn, func()) {
 	ctx := context.Background()
 
 	log.Printf("running docker container: %s:%s", postgresImage, postgresTag)
-	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: postgresImage,
-		Tag:        postgresTag,
-		Env: []string{
-			"POSTGRES_DB=" + databaseName,
-			"POSTGRES_USER=" + databaseUser,
-			"POSTGRES_PASSWORD=" + databasePassword,
+	container, err := pool.RunWithOptions(
+		&dockertest.RunOptions{
+			Repository: postgresImage,
+			Tag:        postgresTag,
+			Env: []string{
+				"POSTGRES_DB=" + databaseName,
+				"POSTGRES_USER=" + databaseUser,
+				"POSTGRES_PASSWORD=" + databasePassword,
+			},
 		},
-	}, func(c *docker.HostConfig) {
-		c.AutoRemove = true
-		c.RestartPolicy = docker.NeverRestart()
-	})
+		func(c *docker.HostConfig) {
+			c.AutoRemove = true
+			c.RestartPolicy = docker.NeverRestart()
+		},
+	)
+
 	if err != nil {
-		log.Fatalf("failed to start postgres container: %v", err)
+		log.Fatalf("starting psql container: %v", err)
 	}
 
 	container.Expire(120) // error handling?
@@ -94,28 +94,16 @@ func NewPostgres() (*pgx.Conn, func()) {
 		RawQuery: "sslmode=disable",
 	}
 
-	time.Sleep(5 * time.Second)
+	log.Print(connUrl.String())
+	time.Sleep(10 * time.Second)
 
 	conn, err := pgx.Connect(ctx, connUrl.String())
 	if err != nil {
-		log.Fatalf("failed to connect to databse: %v", err)
+		log.Fatalf("pgx: %v", err)
 	}
-
-	// err = migrateDB(ctx, conn)
-	// if err != nil {
-	// 	log.Fatalf("failed to migrate databse: %v", err)
-	// }
 
 	return conn, func() {
 		conn.Close(ctx)
 		pool.Purge(container)
-	}
-}
-
-// WithRemove configures Docker to remove container when it terminates
-func WithRemove() func(*docker.HostConfig) {
-	return func(hc *docker.HostConfig) {
-		hc.AutoRemove = true
-		hc.RestartPolicy = docker.NeverRestart()
 	}
 }

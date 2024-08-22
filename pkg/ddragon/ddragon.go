@@ -31,6 +31,6 @@ func GetSummonerSpellUrl(spellId int) templ.SafeURL {
 	return templ.URL("https://www.svgrepo.com/show/379925/alert-error.svg")
 }
 
-func GetRuneIconUrl() templ.SafeURL {
+func GetRuneIconUrl(runeId int) templ.SafeURL {
 	return templ.URL("https://www.svgrepo.com/show/379925/alert-error.svg")
 }

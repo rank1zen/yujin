@@ -62,9 +62,10 @@ templ Profile(r *http.Request, m *database.ProfileSummary) {
 				</div>
 			</div>
 			<div class="grid grid-cols-2 w-full mt-10 gap-4">
-				// hx-trigger="load"
-				// hx-get={ fmt.Sprintf("/profile/%s/matchlist?page=0", chi.URLParam(r, "name")) }
-				<div>
+				<div
+					hx-trigger="load"
+					hx-get={ fmt.Sprintf("/profile/%s/matchlist?page=0", chi.URLParam(r, "name")) }
+				>
 					<ul class="flex flex-col gap-2">
 						for range 15 {
 							<li class="flex rounded-md shadow">

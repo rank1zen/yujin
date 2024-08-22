@@ -2,11 +2,63 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/rank1zen/yujin/pkg/logging"
 	"github.com/rank1zen/yujin/pkg/riot"
 )
+
+type MatchSummonerPostGame struct {
+	Item0Id int `db:"item0_id"`
+	Item1Id int `db:"item1_id"`
+	Item2Id int `db:"item2_id"`
+	Item3Id int `db:"item3_id"`
+	Item4Id int `db:"item4_id"`
+	Item5Id int `db:"item5_id"`
+	Item6Id int `db:"item6_id"`
+
+	Spells0Id int `db:"spell0_id"`
+	Spells1Id int `db:"spell1_id"`
+
+	RunePrimaryPath     int `db:"rune_primary_path"`
+	RunePrimaryKeystone int `db:"rune_primary_keystone"`
+	RunePrimarySlot1    int `db:"rune_primary_slot1"`
+	RunePrimarySlot2    int `db:"rune_primary_slot2"`
+	RunePrimarySlot3    int `db:"rune_primary_slot3"`
+	RuneSecondaryPath   int `db:"rune_secondary_path"`
+	RuneSecondarySlot1  int `db:"rune_secondary_slot1"`
+	RuneSecondarySlot2  int `db:"rune_secondary_slot2"`
+	RuneShardSlot1      int `db:"rune_shard_slot1"`
+	RuneShardSlot2      int `db:"rune_shard_slot2"`
+	RuneShardSlot3      int `db:"rune_shard_slot3"`
+
+	Kills       int `db:"kills"`
+	Deaths      int `db:"deaths"`
+	Assists     int `db:"assists"`
+	CreepScore  int `db:"creep_score"`
+	VisionScore int `db:"vision_score"`
+	GoldEarned  int `db:"gold_earned"`
+	GoldSpent   int `db:"gold_spent"`
+
+	PlayerPosition string `db:"player_position"`
+	ChampionLevel  int    `db:"champion_level"`
+	ChampionID     int    `db:"champion_id"`
+	ChampionName   string `db:"champion_name"`
+
+	TotalDamageDealtToChampions int `db:"total_damage_dealt_to_champions"`
+}
+
+func (m MatchSummonerPostGame) GetKdaRatio() string {
+	if m.Deaths == 0 {
+		return "Perfect"
+	}
+
+	return fmt.Sprintf("%.2f", float32((m.Kills+m.Assists)/m.Deaths))
+}
+
+type MatchSummonerPostGameList []*MatchSummonerPostGame
 
 type RiotMatchId string
 
@@ -14,12 +66,10 @@ func (id RiotMatchId) String() string {
 	return string(id)
 }
 
-type RiotMatchIdList []RiotMatchId
-
-func (db *DB) ensureMatchlist(ctx context.Context, puuid RiotPuuid, start, count int) error {
-	ids, err := db.riot.GetMatchHistory(ctx, puuid.String(), start, count)
+func (db *DB) ensureMatchlist(ctx context.Context, puuid string, start, count int) error {
+	ids, err := db.riot.GetMatchHistory(ctx, puuid, start, count)
 	if err != nil {
-		return err
+		return fmt.Errorf("riot match list: %w", err)
 	}
 
 	batch := &pgx.Batch{}
@@ -27,19 +77,20 @@ func (db *DB) ensureMatchlist(ctx context.Context, puuid RiotPuuid, start, count
 		var found bool
 		err := db.pool.QueryRow(ctx, "select 1 from match_info_records WHERE match_id = $1", id).Scan(&found)
 		if err != nil {
-			return err
+			return fmt.Errorf("sql select: %w", err)
 		}
 
 		if found {
+			logging.FromContext(ctx).Sugar().Debugf("not getting %s: already found", id)
 			continue
 		}
 
 		match, err := db.riot.GetMatch(ctx, id)
 		if err != nil {
-			return err
+			return fmt.Errorf("riot match: %w", err)
 		}
 
-		batchMatch(batch, match)
+		batchInsertRiotMatch(batch, match)
 	}
 
 	batchRes := db.pool.SendBatch(ctx, batch)
@@ -55,31 +106,39 @@ func (db *DB) ensureMatchlist(ctx context.Context, puuid RiotPuuid, start, count
 	return nil
 }
 
-func batchMatch(batch *pgx.Batch, m *riot.MatchDto) {
-	batchInsertRow(batch, "match_info_records", map[string]any{
+func batchInsertRiotMatch(batch *pgx.Batch, m *riot.Match) {
+	matchInfoRow := map[string]any{
 		"match_id":      m.Metadata.MatchId,
 		"game_date":     time.Unix(m.Info.GameStartTimestamp/1000, 0),
 		"game_duration": time.Duration(m.Info.GameDuration) * time.Second,
 		"game_patch":    m.Info.GameVersion,
-	})
+	}
+
+	batchInsertRow(batch, "match_info_records", matchInfoRow)
 
 	for _, p := range m.Info.Participants {
-		batchInsertRow(batch, "match_participant_records", map[string]any{
-			"match_id":             m.Metadata.MatchId,
-			"puuid":                p.PUUID,
-			"team_id":              p.TeamID,
-			"player_win":           p.Win,
-			"player_position":      p.Role,
-			"kills":                p.Kills,
-			"deaths":               p.Deaths,
+		matchParticipantRow := map[string]any{
 			"assists":              p.Assists,
-			"creep_score":          p.TotalMinionsKilled,
-			"vision_score":         p.VisionScore,
-			"gold_earned":          p.GoldEarned,
-			"champion_level":       p.ChampLevel,
 			"champion_id":          p.ChampLevel,
-			"rune_main_path":       p.Perks.Styles[0].Style,
+			"champion_level":       p.ChampLevel,
+			"creep_score":          p.TotalMinionsKilled,
+			"deaths":               p.Deaths,
+			"gold_earned":          p.GoldEarned,
+			"gold_spent":           p.GoldSpent,
+			"item0_id":             p.Item0,
+			"item1_id":             p.Item1,
+			"item2_id":             p.Item2,
+			"item3_id":             p.Item3,
+			"item4_id":             p.Item4,
+			"item5_id":             p.Item5,
+			"item6_id":             p.Item6,
+			"kills":                p.Kills,
+			"match_id":             m.Metadata.MatchId,
+			"player_position":      p.Role,
+			"player_win":           p.Win,
+			"puuid":                p.PUUID,
 			"rune_main_keystone":   p.Perks.Styles[0].Selections[0].Perk,
+			"rune_main_path":       p.Perks.Styles[0].Style,
 			"rune_main_slot1":      p.Perks.Styles[0].Selections[1].Perk,
 			"rune_main_slot2":      p.Perks.Styles[0].Selections[2].Perk,
 			"rune_main_slot3":      p.Perks.Styles[0].Selections[3].Perk, // THESE ARE ALL TODO
@@ -89,75 +148,24 @@ func batchMatch(batch *pgx.Batch, m *riot.MatchDto) {
 			"rune_shard_slot1":     p.Perks.StatPerks.Offense,
 			"rune_shard_slot2":     p.Perks.StatPerks.Flex,
 			"rune_shard_slot3":     p.Perks.StatPerks.Defense,
-		})
-
-		spell := func(batch *pgx.Batch, id, slot, casts int) {
-			row := map[string]any{}
-
-			row["match_id"] = m.Metadata.MatchId
-			row["puuid"] = p.PUUID
-
-			row["spell_slot"] = slot
-			row["spell_id"] = id
-			row["spell_casts"] = casts
-
-			batchInsertRow(batch, "match_summonerspell_records", row)
+			"spell0_id":            p.Summoner1ID,
+			"spell1_id":            p.Summoner2ID,
+			"team_id":              p.TeamID,
+			"vision_score":         p.VisionScore,
 		}
 
-		spell(batch, p.Summoner1ID, 1, p.Summoner1Casts)
-		spell(batch, p.Summoner2ID, 2, p.Summoner2Casts)
-
-		item := func(batch *pgx.Batch, id, slot int) {
-			batchInsertRow(batch, "match_item_records", map[string]any{
-				"match_id":  m.Metadata.MatchId,
-				"puuid":     p.PUUID,
-				"item_id":   id,
-				"item_slot": slot,
-			})
-		}
-
-		item(batch, p.Item0, 0)
-		item(batch, p.Item1, 1)
-		item(batch, p.Item2, 2)
-		item(batch, p.Item3, 3)
-		item(batch, p.Item4, 4)
-		item(batch, p.Item5, 5)
-		item(batch, p.Item6, 6)
+		batchInsertRow(batch, "match_participant_records", matchParticipantRow)
 	}
 
 	for _, t := range m.Info.Teams {
-		batchInsertRow(batch, "match_team_records", map[string]any{
+		matchTeamRow := map[string]any{
 			"match_id":               m.Metadata.MatchId,
 			"team_id":                t.TeamId,
 			"team_win":               t.Win,
 			"team_surrendered":       false, // TODO
 			"team_early_surrendered": false,
-		})
-
-		obj := func(batch *pgx.Batch, name, first, kills any) {
-			batchInsertRow(batch, "match_objective_records", map[string]any{
-				"match_id": m.Metadata.MatchId,
-				"team_id":  t.TeamId,
-				"name":     name,
-				"first":    first,
-				"kills":    kills,
-			})
 		}
 
-		obj(batch, "Baron", t.Objectives.Baron.First, t.Objectives.Baron.Kills)
-		obj(batch, "RiftHerald", t.Objectives.RiftHerald.First, t.Objectives.RiftHerald.Kills)
-		obj(batch, "Dragon", t.Objectives.Dragon.First, t.Objectives.Dragon.Kills)
-		obj(batch, "Inhibitor", t.Objectives.Inhibitor.First, t.Objectives.Inhibitor.Kills)
-		obj(batch, "Tower", t.Objectives.Tower.First, t.Objectives.Tower.Kills)
-		obj(batch, "Champion", t.Objectives.Champion.First, t.Objectives.Champion.Kills)
-
-		for _, ban := range t.Bans {
-			batchInsertRow(batch, "match_ban_records", map[string]any{
-				"match_id":    m.Metadata.MatchId,
-				"team_id":     t.TeamId,
-				"champion_id": ban.ChampionId,
-				"turn":        ban.PickTurn,
-			})
-		}
+		batchInsertRow(batch, "match_team_records", matchTeamRow)
 	}
 }

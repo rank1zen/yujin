@@ -2,15 +2,44 @@ package riot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
 )
 
-type MatchDto struct {
+// Get a list of match ids by puuid (ONLY RANKED SOLOQ, queueId 420)
+func (s *Client) GetMatchHistory(ctx context.Context, puuid string, start int, count int) ([]string, error) {
+	u := fmt.Sprintf(defaultAmerBaseURL+"/lol/match/v5/matches/by-puuid/%s/ids?queue=420&start=%d&count=%d", puuid, start, count)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("User-Agent", userAgent)
+	req.Header.Add("X-Riot-Token", os.Getenv("RIOT_API_KEY"))
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var ids []string
+	err = json.NewDecoder(res.Body).Decode(&ids)
+	if err != nil {
+		return nil, err
+	}
+
+	return ids, nil
+}
+
+type Match struct {
 	Info     *MatchInfo     `json:"info"`
 	Metadata *MatchMetadata `json:"metadata"`
 }
 
-type MatchDtoList []*MatchDto
+type MatchList []*Match
 
 type MatchMetadata struct {
 	DataVersion  string   `json:"dataVersion"`
@@ -188,6 +217,34 @@ type Participant struct {
 	Win                            bool              `json:"win"`
 }
 
+// Get a match by match id
+func (c *Client) GetMatch(ctx context.Context, matchID string) (*Match, error) {
+	u := fmt.Sprintf(defaultAmerBaseURL+"/lol/match/v5/matches/%s", matchID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("User-Agent", userAgent)
+	req.Header.Add("X-Riot-Token", os.Getenv("RIOT_API_KEY"))
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var m Match
+	err = json.NewDecoder(res.Body).Decode(&m)
+	if err != nil {
+		return nil, fmt.Errorf("decoding: %w", err)
+	}
+
+	return &m, nil
+}
+
+// TODO: these are todos
+
 type MatchTimeline struct {
 	Metadata *MetadataTimeLine
 	Info *InfoTimeLine
@@ -294,40 +351,6 @@ type MatchEvent struct {
 	CreatorID               int             `json:"creatorId"`
 	KillerID                int             `json:"killerId"`
 	BeforeID                int             `json:"beforeId"`
-}
-
-// Get a list of match ids by puuid (ONLY RANKED SOLOQ, queueId 420)
-func (s *Client) GetMatchHistory(ctx context.Context, puuid string, start int, count int) ([]string, error) {
-	u := fmt.Sprintf(defaultAmerBaseURL+"/lol/match/v5/matches/by-puuid/%s/ids?queue=420&start=%d&count=%d", puuid, start, count)
-	req := NewRequest(
-		WithToken2(),
-		WithURL(u),
-	)
-
-	var ids []string
-	err := s.Do(ctx, req, &ids)
-	if err != nil {
-		return nil, err
-	}
-
-	return ids, nil
-}
-
-// Get a match by match id
-func (c *Client) GetMatch(ctx context.Context, matchID string) (*MatchDto, error) {
-	u := fmt.Sprintf(defaultAmerBaseURL+"/lol/match/v5/matches/%s", matchID)
-	req := NewRequest(
-		WithURL(u),
-		WithToken2(),
-	)
-
-	var match MatchDto
-	err := c.Do(ctx, req, &match)
-	if err != nil {
-		return nil, err
-	}
-
-	return &match, nil
 }
 
 // Get a match timeline by match id

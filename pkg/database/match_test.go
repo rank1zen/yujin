@@ -2,9 +2,7 @@ package database
 
 import (
 	"context"
-	"log"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -17,16 +15,10 @@ const (
 func TestEnsureMatchlist(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(testingContext(t), 60*time.Second)
-	defer cancel()
+	ctx := context.Background()
 
 	db := setupDB(t)
 
 	err := db.ensureMatchlist(ctx, AndrewPUUID, 0, 1)
 	assert.NoError(t, err)
-
-	matches, err := db.getProfileMatchlist(ctx, AndrewPUUID, 0)
-	assert.NoError(t, err)
-
-	log.Print(matches[0])
 }

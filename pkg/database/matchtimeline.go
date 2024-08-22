@@ -44,11 +44,15 @@ type MatchItemEvent struct {
 	SkillSlot     int
 }
 
+type MatchItemEventList []*MatchItemEvent
+
 type MatchSkillEvent struct {
 	Timestamp     time.Duration `db:"timestamp"`
 	ParticipantID int
 	ItemID        int
 }
+
+type MatchSkillEventList []*MatchSkillEvent
 
 type SummonerMatchItemEvent struct {
 	MatchId       RiotMatchId
@@ -79,7 +83,7 @@ func (m SummonerMatchSkillEvent) GetTimestamp() string {
 
 type SummonerMatchSkillEventList []*SummonerMatchSkillEvent
 
-func (db *DB) get(ctx context.Context, matchID RiotMatchId, puuid RiotPuuid) ([]MatchItemEvent, error) {
+func (db *DB) get(ctx context.Context, matchID string, puuid string) ([]MatchItemEvent, error) {
 	querySelect(ctx, db.pool, `
 	SELECT * FROM match_spell_event_records
 	WHERE match_id = $1 AND participant_id = $2,
