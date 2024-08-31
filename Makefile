@@ -1,22 +1,25 @@
 APP := yujin
 BUILD_DATE := `date +%FT%T%z`
 
-.PHONY: \
-	yujin \
-	live \
-	live/templ \
-	live/server \
-	live/tailwind \
-	live/sync_assets
+CSS_SRC := internal/ui/static/css/tailwind.css
+CSS_OUT := internal/ui/static/css/styles.css
 
-yujin:
+# .PHONY: \
+# 	yujin \
+# 	live \
+# 	live/templ \
+# 	live/server \
+# 	live/tailwind \
+# 	live/sync_assets
+
+yujin: build-templ build-tailwind
 	@ go build -o $(APP) main.go
 
-templ:
-	@templ generate --watch
+build-templ:
+	@ templ generate
 
-tailwind:
-	@npx tailwindcss -i tailwind.css -o ./static/css/styles.css
+build-tailwind:
+	@ npx tailwindcss -i $(CSS_SRC) -o $(CSS_OUT)
 
 live/templ:
 	templ generate --watch --proxy="http://localhost:8080" --open-browser=true
@@ -32,7 +35,7 @@ live/server:
 		--misc.clean_on_exit true
 
 live/tailwind:
-	npx tailwindcss -i ./tailwind.css -o ./static/css/styles.css --watch
+	npx tailwindcss -i ./tailwind.css -o ./pkg/server/ui/static/css/styles.css --watch
 
 live/sync_assets:
 	go run github.com/cosmtrek/air@v1.51.0 \

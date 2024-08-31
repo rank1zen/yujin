@@ -1,0 +1,111 @@
+package pages
+
+import "github.com/rank1zen/yujin/internal/database"
+import "fmt"
+import "github.com/go-chi/chi/v5"
+import "net/http"
+import "github.com/rank1zen/yujin/internal/ui/partials"
+
+templ base(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<link rel="stylesheet" href="/static/css/styles.css"/>
+			<script src="https://unpkg.com/htmx.org@2.0.0" integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw" crossorigin="anonymous"></script>
+			<title>{ title }</title>
+		</head>
+		<body>
+			<main>
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+templ basePage(title string) {
+	@base(title) {
+		<div class="max-w-xl lg:max-w-5xl mx-auto px-8 my-8">
+			{ children... }
+		</div>
+	}
+}
+
+templ Profile(r *http.Request, m *database.ProfileSummary) {
+	@basePage(fmt.Sprintf("%s#%s - YUJIN.GG", m.Name, m.TagLine)) {
+		<header>
+			<div class="rounded size-16 shadow overflow-hidden mb-[1rem]">
+				<img class="size-full" src={ m.ProfileIconImageUrl }/>
+			</div>
+			<div class="flex items-center tracking-tight">
+				<h1 class="inline-block text-3xl sm:text-4xl font-bold">{ m.Name }#{ m.TagLine }</h1>
+			</div>
+			<div class="mt-2">
+				<span class="text-lg font-medium block tracking-tight">{ m.SoloqRank }</span>
+			</div>
+			<div class="flex mt-1 text-sm">
+				<button
+					class="flex tracking-tight bg-neutral-900 hover:bg-neutral-500 text-white py-1 px-2 rounded"
+					hx-post={ fmt.Sprintf("/profile/%s/update", chi.URLParam(r, "name")) }
+					hx-trigger="click"
+					type="button"
+				>
+					Update
+				</button>
+				<div class="py-1 px-2">
+					<span class="block">Last Updated: { m.LastUpdated }</span>
+				</div>
+			</div>
+		</header>
+		<div class="mt-4 border-b">
+			<ul class="flex space-x-4">
+				<li>
+					<a class="flex py-2 tracking-tight border-b-2 border-transparent text-neutral-500 focus:border-black focus:text-black hover:border-black hover:text-black" href="#">Match History</a>
+				</li>
+				<li>
+					<a class="flex py-2 tracking-tight border-b-2 border-transparent text-neutral-500 focus:border-black focus:text-black hover:border-black hover:text-black" href="#">Other</a>
+				</li>
+			</ul>
+		</div>
+		<div class="mt-8 flex overflow-hidden">
+			<div class="">
+			<div hx-trigger="load" hx-get={ fmt.Sprintf("/profile/%s/matchlist", chi.URLParam(r, "name")) }>
+				<ul class="flex flex-col space-y-2">
+					for range 15 {
+						@partials.ProfileMatchCardSkeleton()
+					}
+				</ul>
+			</div></div>
+		</div>
+	}
+}
+
+templ ProfileNotFound(r *http.Request) {
+	@basePage(chi.URLParam(r, "name")) {
+		<section>
+			<div class="text-2xl">
+				Could not find { "\""+chi.URLParam(r, "name")+"\" " }.
+			</div>
+		</section>
+	}
+}
+
+templ About() {
+	@basePage("YUJIN.GG") {
+		<div class="">
+			<header>
+				<div class="pt-8">
+					<h1 class="text-8xl font-bold">YUJIN.GG</h1>
+					<h2 class="italic">Yujin is an opinionated and minimalist league of legends tool.</h2>
+				</div>
+			</header>
+		</div>
+	}
+}
+
+templ NotFound() {
+	<div class="">
+		404 Page not found
+	</div>
+}

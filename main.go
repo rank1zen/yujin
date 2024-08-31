@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/rank1zen/yujin/pkg/cmd"
+	"github.com/rank1zen/yujin/internal/cmd"
 )
 
 func main() {

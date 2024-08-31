@@ -1,0 +1,239 @@
+package partials
+
+import "github.com/rank1zen/yujin/internal/database"
+import "fmt"
+import "net/http"
+import "github.com/go-chi/chi/v5"
+import "github.com/rank1zen/yujin/internal/http/request"
+import "strconv"
+import "github.com/rank1zen/yujin/internal/ddragon"
+
+templ ProfileSummary(m *database.ProfileSummary) {
+	<div class="">
+		<div class="flex">
+			<div class="rounded-sm">
+				<img class="rounded-lg border-4 border-black" src={ m.ProfileIconImageUrl }/>
+			</div>
+			<div class="flex flex-col justify-evenly ml-4">
+				{ strconv.Itoa(m.SummonerLevel) }
+				<h1 class="text-7xl">{ m.Name+"#"+m.TagLine }</h1>
+				<p class="text-5xl">{ m.SoloqRank } { m.LastUpdated }</p>
+			</div>
+		</div>
+	</div>
+}
+
+templ ProfileMatchlistError() {
+	<div class="">
+		<div class="text-center">Error fetching matchlist.</div>
+	</div>
+}
+
+templ ProfileMatchSummary(m *database.ProfileMatchSummary) {
+	<div class="w-full">
+		<div class="bg-neutral-100 rounded">
+			<div>
+				<div class="p-4">
+					<h class="font-bold block text-lg">NA1_5003179356</h>
+					<span class="block">2024-05-21</span>
+					<span class="block">5 minutes, 23 seconds</span>
+					<span class="block">Patch 14.15.1</span>
+					<div class="mt-8">
+						<div class="">
+							<div class="">
+								<table class="table-fixed w-full text-sm">
+									<thead>
+										<tr>
+											<th class="text-left">Defeat (Blue Side)</th>
+											<th class="text-left">KDA</th>
+											<th class="text-left">DMG</th>
+											<th class="text-left">Gold</th>
+											<th class="text-left">CS</th>
+											<th class="text-left">Items</th>
+										</tr>
+									</thead>
+									<tbody class="p-2 tracking-tight leading-tight">
+										for range 5 {
+											<tr>
+												<td class="overflow-hidden w-32">
+													<div class="">
+														<div class="grid grid-cols-[repeat(4,19px)] grid-rows-[repeat(2,19px)] grid-flow-col gap-[2px]">
+															<div class="rounded col-span-2 row-span-2 overflow-hidden">
+																<img src="https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png" class="size-full scale-105"/>
+															</div>
+															<div class="rounded overflow-hidden">
+																<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+															</div>
+															<div class="rounded overflow-hidden">
+																<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+															</div>
+															<div class="rounded overflow-hidden">
+																<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+															</div>
+															<div class="rounded overflow-hidden">
+																<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+															</div>
+														</div>
+														<div class="flex flex-col justify-evenly ml-2">
+															<p>Doublelift</p>
+															<p>Challenger</p>
+														</div>
+													</div>
+												</td>
+												<td class=""><div><div>3/10/3</div></div></td>
+												<td class=""><div><div>22,268</div> </div> </td>
+												<td class=""><div><div>26,000</div> </div> </td>
+												<td class=""><div><div>172</div> </div> </td>
+												<td class="">
+													<div class="grid grid-cols-[repeat(3,20px)] grid-rows-[repeat(2,20px)] grid-flow-row gap-[2px]">
+														<div class="">
+															<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+														</div>
+														<div class="">
+															<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+														</div>
+														<div class="">
+															<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+														</div>
+														<div class="">
+															<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+														</div>
+														<div class="">
+															<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+														</div>
+														<div class="">
+															<img src="https://ddragon.leagueoflegends.com/cdn/14.15.1/img/item/3009.png" class="size-full"/>
+														</div>
+													</div>
+												</td>
+											</tr>
+										}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+					<div class="mt-8">
+						<div>
+							<div class="flex place-items-center gap-2">
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PressTheAttack/PressTheAttack.png"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+								<img src="https://static.bigbrain.gg/assets/lol/riot_static/14.13.1/img/small-perk-images/Styles/Precision/PresenceOfMind/PresenceOfMind.webp" class="size-9 rounded-full border-2 border-black"/>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ ProfileMatchSummaryError() {
+	<div>
+		<div class="text-center">Could not fetch match</div>
+	</div>
+}
+
+templ ProfileMatchCardSkeleton() {
+	<li class="flex border-l-4">
+		<div class="animate-pulse mr-2 ml-4 my-1">
+			<div class="grid grid-flow-col grid-cols-[repeat(15,25px)] grid-rows-[repeat(2,25px)] gap-1">
+				<div class="row-span-2 col-span-3 grid grid-cols-3 grid-rows-3 gap-2 pr-4">
+					<div class="rounded-full bg-slate-200 col-span-3"></div>
+					<div class="rounded-full bg-slate-200 col-span-2"></div>
+					<div class="rounded-full bg-slate-200 col-span-3"></div>
+				</div>
+				<div class="row-span-2 col-span-2 bg-slate-200 rounded"></div>
+				<div class="bg-slate-200 rounded"></div>
+				<div class="bg-slate-200 rounded"></div>
+				<div class="row-span-2 col-span-2 bg-slate-200 rounded"></div>
+				<div class="row-span-2 col-span-4 grid grid-cols-3 grid-rows-3 gap-2 pr-4 ml-4">
+					<div class="rounded-full bg-slate-200 col-span-3"></div>
+					<div class="rounded-full bg-slate-200 col-span-2"></div>
+					<div class="rounded-full bg-slate-200 col-span-3"></div>
+				</div>
+				<div class="bg-slate-200 rounded"></div>
+				<div class="bg-slate-200 rounded"></div>
+				<div class="bg-slate-200 rounded"></div>
+				<div class="bg-slate-200 rounded"></div>
+				<div class="bg-slate-200 rounded"></div>
+				<div class="bg-slate-200 rounded"></div>
+			</div>
+		</div>
+	</li>
+}
+
+templ ProfileMatchCard(m *database.ProfileMatch) {
+	<li class="flex hover:brightness-90 hover:bg-slate-50 border-l-4 border-red-500 rounded-l-sm rounded-r">
+		<div class="my-1 overflow-hidden mr-2 ml-4">
+			<div class="grid grid-flow-col grid-cols-[repeat(15,25px)] grid-rows-[repeat(2,25px)] gap-1">
+				<div class="text-sm row-span-2 col-span-3 overflow-hidden align-middle leading-tight tracking-tight">
+					<div class="font-bold block">+??? LP</div>
+					<div class="block">19m 24s</div>
+					<div class="block">{ m.GameDate.Format("01-02 15:04") }</div>
+				</div>
+				<div class="col-span-2 row-span-2 overflow-hidden rounded shadow-xl">
+					<img src={ ddragon.GetChampionIconUrl(m.ChampionName) } class="scale-[1.09] size-full"/>
+				</div>
+				for i := range 2 {
+					<div class="rounded overflow-hidden shadow">
+						<img src={ ddragon.GetSummonerSpellUrl(m.SpellIds[i]) } class="size-full"/>
+					</div>
+				}
+				<div class="grid col-span-2 row-span-2 overflow-hidden grid-cols-subgrid grid-rows-subgrid">
+					<div class="col-start-1 row-start-1 col-span-2 row-span-2">
+						<img src={ ddragon.GetRuneIconUrl(m.RunePrimaryId) } class="size-full"/>
+					</div>
+					<div class="col-start-2 row-start-2 z-10 p-1 bg-white rounded-full">
+						<img src={ ddragon.GetRuneIconUrl(m.RuneSecondaryId) } class="size-full"/>
+					</div>
+				</div>
+				<div class="text-sm row-span-2 col-span-4 overflow-hidden justify-between ml-4 leading-tight tracking-tight">
+					<p class="font-bold">{ m.Kills } / { m.Deaths } / { m.Assists }</p>
+					<p class="block leading-tight">{ m.CreepScore } ({ m.CsPer10 }) CS</p>
+					<p class="block">{ m.Damage } DMG</p>
+				</div>
+				<div class="grid row-span-2 col-span-3 grid-cols-subgrid grid-rows-subgrid">
+					for i := range 6 {
+						<div class="rounded overflow-hidden shadow">
+							@itemIcon(m.ItemIds[i])
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	</li>
+}
+
+templ ProfileMatchList(r *http.Request, m database.ProfileMatchList) {
+	<ul class="flex flex-col gap-2">
+		if len(m) == 0 {
+			<div class="font-bold p-4">
+				// TODO:
+				No more matches
+			</div>
+		} else {
+			for i := range len(m) {
+				@ProfileMatchCard(m[i])
+			}
+			<div
+				hx-get={ fmt.Sprintf("/profile/%s/matchlist?page=%d", chi.URLParam(r, "name"), request.QueryIntParam(r, "page", 0)+1) }
+				hx-trigger="revealed"
+				hx-swap="outerHTML"
+			>
+				Loading more
+			</div>
+		}
+	</ul>
+}
+
+templ itemIcon(itemID int) {
+	if itemID == 0 {
+		<div class="bg-neutral-700"></div>
+	} else {
+		<img class="size-full" src={ ddragon.GetItemIconUrl(itemID) }/>
+	}
+}
