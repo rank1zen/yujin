@@ -16,15 +16,15 @@ import (
 var assets embed.FS
 
 type SummonerSpell struct {
-	Id       int    `json:"id"`
 	Name     string `json:"name"`
 	IconPath string `json:"iconPath"`
+	Id       int    `json:"id"`
 }
 
 type Perk struct {
-	Id       int    `json:"id"`
 	Name     string `json:"name"`
 	IconPath string `json:"iconPath"`
+	Id       int    `json:"id"`
 }
 
 var (

@@ -16,9 +16,12 @@ func (s *Client) GetMatchIdsByPuuid(ctx context.Context, puuid string, start int
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
-	req.URL.Query().Add("queue", "420")
-	req.URL.Query().Add("start", strconv.Itoa(start))
-	req.URL.Query().Add("count", strconv.Itoa(count))
+	soloqQueueID := "420"
+	q := req.URL.Query()
+	q.Add("queue", soloqQueueID)
+	q.Add("start", strconv.Itoa(start))
+	q.Add("count", strconv.Itoa(count))
+	req.URL.RawQuery = q.Encode()
 	req.Header.Add("Accept", "application/json")
 	body, err := execute(ctx, req)
 	if err != nil {

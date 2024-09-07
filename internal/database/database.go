@@ -8,7 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rank1zen/yujin/internal/ddragon"
+	"github.com/rank1zen/yujin/internal/database/migrate"
+	"github.com/rank1zen/yujin/internal/pgxutil"
 	"github.com/rank1zen/yujin/internal/riot"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -41,6 +42,17 @@ func NewDB(ctx context.Context, url string) (*DB, error) {
 		return nil, err
 	}
 
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
+	err = migrate.Migrate(ctx, conn.Conn())
+	if err != nil {
+		return nil, err
+	}
+
 	riot := &riot.Client{}
 
 	return &DB{
@@ -51,7 +63,6 @@ func NewDB(ctx context.Context, url string) (*DB, error) {
 
 func (db *DB) Close() {
 	db.pool.Close()
-
 }
 
 type Account struct {
@@ -120,27 +131,12 @@ func (db *DB) GetAccount(ctx context.Context, name string) (*Account, error) {
 		"tagline":     acc.TagLine,
 	}
 
-	err = queryInsertRow(ctx, db.pool, "riot_accounts", vals)
+	err = pgxutil.QueryInsertRow(ctx, db.pool, "riot_accounts", vals)
 	if err != nil {
 		return nil, fmt.Errorf("inserting: %w", err)
 	}
 
 	return getAccount(gamename, tagline)
-}
-
-func (db *DB) CheckFirstTimeProfile(ctx context.Context, name string) (bool, error) {
-	ids, err := db.GetAccount(ctx, name)
-	if err != nil {
-		return false, fmt.Errorf("getting account: %w", err)
-	}
-
-	var exists bool
-	err = db.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM profile_summaries WHERE puuid = $1)`, ids.Puuid).Scan(&exists)
-	if err != nil {
-		return false, err
-	}
-
-	return exists, nil
 }
 
 func (db *DB) UpdateProfile(ctx context.Context, name string) error {
@@ -149,10 +145,11 @@ func (db *DB) UpdateProfile(ctx context.Context, name string) error {
 		return fmt.Errorf("getting account: %w", err)
 	}
 
-	err = db.ensureMatchlist(ctx, ids.Puuid, 0, 10)
+	tx, err := db.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("matchlist: %w", err)
+		return err
 	}
+	defer tx.Rollback(ctx)
 
 	summoner, err := db.riot.GetSummonerByPuuid(ctx, ids.Puuid)
 	if err != nil {
@@ -168,7 +165,7 @@ func (db *DB) UpdateProfile(ctx context.Context, name string) error {
 		"summoner_level":  summoner.SummonerLevel,
 	}
 
-	err = queryInsertRow(ctx, db.pool, "summoner_records", row)
+	err = pgxutil.QueryInsertRow(ctx, tx, "summoner_records", row)
 	if err != nil {
 		return err
 	}
@@ -190,7 +187,12 @@ func (db *DB) UpdateProfile(ctx context.Context, name string) error {
 		}
 	}
 
-	err = queryInsertRow(ctx, db.pool, "league_records", row)
+	err = pgxutil.QueryInsertRow(ctx, tx, "league_records", row)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit(ctx)
 	if err != nil {
 		return err
 	}
@@ -199,15 +201,12 @@ func (db *DB) UpdateProfile(ctx context.Context, name string) error {
 }
 
 type ProfileSummary struct {
-	Name                string
-	TagLine             string
-	ProfileIconImageUrl string
-	LastUpdated         string
-	SoloqRank           string
-	LeaguePoints        string
-	Wins                string
-	Losses              string
-	SummonerLevel       int
+	Name          string `db:"name"`
+	TagLine       string `db:"tagline"`
+	LastUpdated   string `db:"last_updated"`
+	SoloqRank     string `db:"soloq_rank"`
+	WinLoss       string `db:"win_loss"`
+	SummonerLevel int    `db:"summoner_level"`
 }
 
 func (db *DB) GetProfileSummary(ctx context.Context, name string) (*ProfileSummary, error) {
@@ -216,53 +215,53 @@ func (db *DB) GetProfileSummary(ctx context.Context, name string) (*ProfileSumma
 		return nil, fmt.Errorf("getting account: %w", err)
 	}
 
-	found, err := db.CheckFirstTimeProfile(ctx, name)
+	var exists bool
+	err = db.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM profile_summaries WHERE puuid = $1)`, ids.Puuid).Scan(&exists)
 	if err != nil {
-		return nil, fmt.Errorf("checking profile: %w", err)
+		return nil, err
 	}
 
-	if !found {
+	if !exists {
 		err := db.UpdateProfile(ctx, name)
 		if err != nil {
 			return nil, fmt.Errorf("updating: %w", err)
 		}
 	}
 
-	m := ProfileSummary{Name: ids.Name, TagLine: ids.TagLine}
-	var iconId int
-	// TODO: have seperated fields to wins and losses
-	err = db.pool.QueryRow(ctx, `
+	rows, _ := db.pool.Query(ctx, `
 	SELECT
-		profile_icon_id,
+		name,
+		tagline,
+		TO_CHAR(record_date, 'YYYY MM-DD HH24:MI') AS last_updated,
 		summoner_level,
+		CASE
+			WHEN 1=1 AND tier IS NOT NULL AND division IS NOT NULL AND league_points IS NOT NULL THEN
+			CASE WHEN tier IN ('CHALLENGER', 'MASTER', 'GRANDMASTER') THEN
+				FORMAT('%s %s LP', INITCAP(tier), league_points)
+			ELSE FORMAT('%s %s %s LP', INITCAP(tier), division, league_points)
+			END
+		ELSE 'Unranked'
+		END AS soloq_rank,
 		CASE WHEN 1=1
-			AND tier          IS NOT NULL
-			AND division      IS NOT NULL
-			AND league_points IS NOT NULL
 			AND number_wins   IS NOT NULL
 			AND number_losses IS NOT NULL
-		THEN FORMAT('%s %s %s LP, %s-%s', tier, division, league_points, number_wins, number_losses)
-		ELSE 'Unranked'
-		END AS soloq_rank
+		THEN FORMAT('%s-%s', number_wins, number_losses)
+		ELSE '0-0'
+		END AS win_loss
 	FROM
 		profile_summaries
 	WHERE
 		puuid = $1;
-	`, ids.Puuid).Scan(&iconId, &m.SummonerLevel, &m.SoloqRank)
-	if err != nil {
-		return nil, fmt.Errorf("getting profile: %w", err)
-	}
+	`, ids.Puuid)
 
-	m.ProfileIconImageUrl = ddragon.GetSummonerProfileIconUrl(iconId)
-
-	return &m, nil
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[ProfileSummary])
 }
 
 type ProfileMatch struct {
-	PlayerWin    bool          `db:"player_win"`
-	LpChange     int           `db:"-"`
-	GameDate     time.Time     `db:"game_date"`
-	GameDuration time.Duration `db:"game_duration"`
+	PlayerWin    bool   `db:"win"`
+	LpChange     int    `db:"-"`
+	GameDate     string `db:"game_date"`
+	GameDuration string `db:"game_duration"`
 
 	Kills      string `db:"kills"`
 	Deaths     string `db:"deaths"`
@@ -273,10 +272,12 @@ type ProfileMatch struct {
 
 	ItemIds         []int  `db:"items"`
 	SpellIds        []int  `db:"spells"`
-	ChampionName    string `db:"champion_name"`
+	ChampionIconUrl string `db:"champion_icon_url"`
 	RunePrimaryId   int    `db:"rune_primary"`
 	RuneSecondaryId int    `db:"rune_secondary"`
 }
+
+type ProfileMatchList []*ProfileMatch
 
 func (db *DB) GetProfileMatchList(ctx context.Context, name string, page int, ensure bool) (ProfileMatchList, error) {
 	ids, err := db.GetAccount(ctx, name)
@@ -286,24 +287,24 @@ func (db *DB) GetProfileMatchList(ctx context.Context, name string, page int, en
 
 	start, count := 10*page, 10
 	if ensure {
-		err := db.ensureMatchlist(ctx, ids.Puuid, start, count)
+		err := ensureMatchList(ctx, db.pool, db.riot, ids.Puuid, start, count)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ensuring matchlist: %w", err)
 		}
 	}
 
 	rows, _ := db.pool.Query(ctx, `
 	SELECT
-		player_win,
-		game_date,
-		game_duration,
+		win,
+		TO_CHAR(game_date, 'MM-DD HH24:MI') AS game_date,
+		EXTRACT(MINUTE FROM game_duration) || 'm ' || EXTRACT(SECOND FROM game_duration) || 's' AS game_duration,
 		kills,
 		deaths,
 		assists,
 		creep_score,
 		TO_CHAR(60 * creep_score / EXTRACT(epoch FROM game_duration), 'FM99999.0') AS cs_per_10,
 		total_damage_dealt_to_champions AS damage,
-		champion_name,
+		FORMAT('https://cdn.communitydragon.org/14.16.1/champion/%s/square', champion_id) AS champion_icon_url,
 		array[item0_id, item1_id, item2_id, item3_id, item4_id, item5_id] as items,
 		array[spell1_id, spell2_id] as spells,
 		rune_primary_keystone AS rune_primary,
@@ -312,60 +313,10 @@ func (db *DB) GetProfileMatchList(ctx context.Context, name string, page int, en
 		profile_matches
 	WHERE
 		puuid = $1
+	ORDER BY
+		game_date DESC
 	OFFSET $2 LIMIT $3;
 	`, ids.Puuid, start, count)
 
-	matchlist, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[ProfileMatch])
-	if err != nil {
-		return nil, fmt.Errorf("getting matchlist: %w", err)
-	}
-
-	return matchlist, nil
+	return pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[ProfileMatch])
 }
-
-// TODO
-// func (db *DB) GetProfileMatchSummary(ctx context.Context, name RiotName, matchID RiotMatchId) (*ProfileMatchSummary, error) {
-// 	ids, err := db.GetAccount(ctx, name)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	var m ProfileMatchSummary
-// 	rows, _ := db.pool.Query(ctx, `
-// 	SELECT
-// 		player_position,
-// 		kills,
-// 		deaths,
-// 		assists,
-// 		creep_score,
-// 		champion_level,
-// 		champion_id,
-// 		vision_score,
-// 		items_arr,
-// 		spells_arr
-// 	FROM
-// 		match_participant_simple
-// 	WHERE
-// 		match_id = $1;
-// 	`, matchID)
-// 	players, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[MatchSummonerPostGame])
-// 	if err != nil {
-// 		return nil, fmt.Errorf("select post games: %w", err)
-// 	}
-//
-// 	if len(players) != 10 {
-// 		return nil, fmt.Errorf("got players: %v", len(players))
-// 	}
-//
-// 	rows, _ = db.pool.Query(ctx, `
-// 	SELECT
-// 		rune_slot,
-// 		rune_id
-// 	FROM
-// 		match_rune_records
-// 	WHERE
-// 		puuid = $1 AND match_id = $2
-// 	`, ids.Puuid, matchID)
-//
-// 	return &m, nil
-// }

@@ -111,11 +111,12 @@ func TestGetProfileMatchList(t *testing.T) {
 
 	db := setupDB(t)
 
-	err := db.UpdateProfile(ctx, "doublelift-na1")
-	assert.NoError(t, err)
-
-	matches, err := db.GetProfileMatchList(ctx, "doublelift-na1", 0, false)
+	matches, err := db.GetProfileMatchList(ctx, "doublelift-na1", 0, true)
 	if assert.NoError(t, err) {
-		log.Print(matches[0])
+		log.Println(matches[0])
+		log.Println(matches[1])
+		log.Println(matches[2])
+		log.Println(matches[3])
+		log.Println(matches[4])
 	}
 }

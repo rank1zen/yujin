@@ -27,6 +27,10 @@ type pathHandler struct {
 	fn   http.HandlerFunc
 }
 
+type contextKey string
+
+const requestID contextKey = "request_id"
+
 func Routes(db *database.DB) *chi.Mux {
 	router := chi.NewRouter()
 
@@ -34,37 +38,41 @@ func Routes(db *database.DB) *chi.Mux {
 		middleware.NoCache,
 		middleware.Recoverer,
 		func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fn := func(w http.ResponseWriter, r *http.Request) {
 				logger := logging.Get()
 
 				id := uuid.Must(uuid.NewRandom()).String()
 
-				ctx := context.WithValue(r.Context(), "request_id", id)
+				ctx := context.WithValue(r.Context(), requestID, id)
 				r = r.WithContext(ctx)
 
-				logger.With(zap.String("request_id", id))
+				logger = logger.With(zap.String("request_id", id))
+				r = r.WithContext(logging.WithContext(ctx, logger))
 
 				w.Header().Set("X-Yujin-Request-ID", id)
-
 				wrw := middleware.NewWrapResponseWriter(w, 1)
-
-				r = r.WithContext(logging.WithContext(ctx, logger))
 
 				defer func(start time.Time) {
 					fields := []zapcore.Field{
 						zap.Duration("duration_ms", time.Since(start)),
 						zap.Int("response_bytes", wrw.BytesWritten()),
 						zap.Int("status", wrw.Status()),
-						zap.String("method", r.Method),
 						zap.String("url", r.RequestURI),
 						zap.String("user_agent", r.UserAgent()),
 					}
 
-					logger.Info("REQUEST", fields...)
+					switch wrw.Status() {
+					case http.StatusOK:
+						logger.Info(r.Method, fields...)
+					default:
+						logger.Error(r.Method, fields...)
+					}
 				}(time.Now())
 
 				next.ServeHTTP(wrw, r)
-			})
+			}
+
+			return http.HandlerFunc(fn)
 		},
 	}
 
@@ -99,26 +107,37 @@ func Routes(db *database.DB) *chi.Mux {
 			"/profile/{name}",
 			func(w http.ResponseWriter, r *http.Request) {
 				ctx := r.Context()
-
 				name := chi.URLParam(r, "name")
-
 				profile, err := db.GetProfileSummary(ctx, name)
 				if err != nil {
 					html.ServerError(w, r, pages.ProfileNotFound(r), err)
 				}
 
-				html.OK(w, r, pages.Profile(r, profile))
+				html.OK(w, r, pages.ProfileMatchList(r, profile))
+			},
+		},
+		{
+			"/profile/{name}/other",
+			func(w http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
+				name := chi.URLParam(r, "name")
+				profile, err := db.GetProfileSummary(ctx, name)
+				if err != nil {
+					html.ServerError(w, r, pages.ProfileNotFound(r), err)
+				}
+
+				html.OK(w, r, pages.ProfileOther(r, profile))
 			},
 		},
 		{
 			"/profile/{name}/matchlist",
 			func(w http.ResponseWriter, r *http.Request) {
 				ctx := r.Context()
-
+				name := chi.URLParam(r, "name")
 				page := request.QueryIntParam(r, "page", 0)
-				matches, err := db.GetProfileMatchList(ctx, chi.URLParam(r, "name"), page, true)
+				matches, err := db.GetProfileMatchList(ctx, name, page, true)
 				if err != nil {
-					html.ServerError(w, r, partials.ProfileMatchlistError(), err)
+					html.ServerError(w, r, partials.ProfileMatchListError(), err)
 					return
 				}
 
@@ -134,13 +153,13 @@ func Routes(db *database.DB) *chi.Mux {
 			"/profile/{name}/update",
 			func(w http.ResponseWriter, r *http.Request) {
 				ctx := r.Context()
-
 				name := chi.URLParam(r, "name")
 				err := db.UpdateProfile(ctx, name)
 				if err != nil {
 					html.ServerError(w, r, nil, fmt.Errorf("updating summary: %w", err))
 				}
 
+				w.Header().Set("HX-Refresh", "true")
 				w.WriteHeader(http.StatusOK)
 			},
 		},
