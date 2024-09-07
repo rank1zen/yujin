@@ -2,16 +2,12 @@ APP := yujin
 BUILD_DATE := `date +%FT%T%z`
 
 STATIC_DIR := internal/ui/static
-CSS_SRC := internal/ui/static/css/tailwind.css
-CSS_OUT := internal/ui/static/css/styles.css
 
-# .PHONY: \
-# 	yujin \
-# 	live \
-# 	live/templ \
-# 	live/server \
-# 	live/tailwind \
-# 	live/sync_assets
+.PHONY: \
+	yujin \
+	build-templ \
+	build-tailwind \
+	dev
 
 yujin: build-templ build-tailwind
 	@ go build -o $(APP) main.go
