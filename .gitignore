@@ -1,4 +1,6 @@
-bin
-docker-compose.yml
 *.envrc
-db/migrations/tern.conf
+
+node_modules/
+
+**/*_templ.go
+**/tern.conf
