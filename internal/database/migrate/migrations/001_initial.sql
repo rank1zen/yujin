@@ -26,16 +26,11 @@ CREATE TABLE summoner_records (
     profile_icon_id INT              NOT NULL
 );
 
--- TODO: this query sucks
 CREATE VIEW summoner_records_newest AS
-WITH numbered_records AS (
-    SELECT *, row_number() OVER (PARTITION BY puuid ORDER BY record_date DESC) AS rn
-    FROM summoner_records
-)
-SELECT
-    record_id, record_date, account_id, summoner_id, puuid, revision_date, summoner_level, profile_icon_id
-FROM numbered_records
-WHERE rn = 1;
+SELECT DISTINCT ON (puuid)
+  summoner_id, puuid, summoner_level, profile_icon_id
+  FROM summoner_records
+  ORDER BY puuid, record_date DESC;
 
 CREATE TABLE league_records (
     record_id UUID default gen_random_uuid() primary key,
@@ -50,16 +45,11 @@ CREATE TABLE league_records (
     number_losses INT
 );
 
--- TODO: this query sucks
 CREATE VIEW league_records_newest AS
-WITH numbered_records AS (
-    SELECT *, row_number() OVER (PARTITION BY summoner_id ORDER BY record_date DESC) AS rn
-    FROM league_records
-)
-SELECT
-    record_id, record_date, summoner_id, league_id, tier, division, league_points, number_wins, number_losses
-FROM numbered_records
-WHERE rn = 1;
+SELECT DISTINCT ON (summoner_id)
+  summoner_id, tier, division, league_points, wins, losses
+  FROM league_records
+  ORDER BY summoner_id, record_date DESC;
 
 CREATE VIEW profile_summaries AS
 SELECT
