@@ -1,92 +1,96 @@
 -- Write your migrate up statements here
 
+CREATE FUNCTION get_champion_icon_url(id INT) RETURNS VARCHAR(128) AS $$
+  SELECT FORMAT('FIXME/%s', $1) -- FIXME:
+$$ LANGUAGE SQL;
+
 CREATE DOMAIN riot_puuid       AS CHAR(78);
 CREATE DOMAIN riot_summoner_id AS VARCHAR(63);
 CREATE DOMAIN riot_account_id  AS VARCHAR(56);
 CREATE DOMAIN riot_match_id    AS VARCHAR(60);
 
 CREATE TABLE riot_accounts (
-    record_id UUID default gen_random_uuid() primary key,
+  record_id UUID default gen_random_uuid() primary key,
 
-    summoner_id riot_summoner_id NOT NULL,
-    puuid       riot_puuid       NOT NULL,
-    name        VARCHAR(32)      NOT NULL,
-    tagline     VARCHAR(32)      NOT NULL
+  summoner_id riot_summoner_id NOT NULL,
+  puuid       riot_puuid       NOT NULL,
+  name        VARCHAR(32)      NOT NULL,
+  tagline     VARCHAR(32)      NOT NULL
 );
 
 CREATE TABLE summoner_records (
-    record_id UUID default gen_random_uuid() primary key,
-    record_date TIMESTAMPTZ default current_timestamp,
+  record_id UUID default gen_random_uuid() primary key,
+  record_date TIMESTAMPTZ default current_timestamp,
 
-    account_id      riot_account_id  NOT NULL,
-    summoner_id     riot_summoner_id NOT NULL,
-    puuid           riot_puuid       NOT NULL,
-    revision_date   TIMESTAMPTZ        NOT NULL,
-    summoner_level  BIGINT           NOT NULL,
-    profile_icon_id INT              NOT NULL
+  account_id      riot_account_id  NOT NULL,
+  summoner_id     riot_summoner_id NOT NULL,
+  puuid           riot_puuid       NOT NULL,
+  revision_date   TIMESTAMPTZ      NOT NULL,
+  summoner_level  BIGINT           NOT NULL,
+  profile_icon_id INT              NOT NULL
 );
 
 CREATE VIEW summoner_records_newest AS
 SELECT DISTINCT ON (puuid)
-  summoner_id, puuid, summoner_level, profile_icon_id
+  record_date, summoner_id, puuid, summoner_level, profile_icon_id
   FROM summoner_records
   ORDER BY puuid, record_date DESC;
 
 CREATE TABLE league_records (
-    record_id UUID default gen_random_uuid() primary key,
-    record_date TIMESTAMPTZ default current_timestamp,
+  record_id UUID default gen_random_uuid() primary key,
+  record_date TIMESTAMPTZ default current_timestamp,
 
-    summoner_id   riot_summoner_id NOT NULL,
-    league_id     VARCHAR(128),
-    tier          VARCHAR(16),
-    division      VARCHAR(8),
-    league_points INT,
-    number_wins   INT,
-    number_losses INT
+  summoner_id   riot_summoner_id NOT NULL,
+  league_id     VARCHAR(128),
+  tier          VARCHAR(16),
+  division      VARCHAR(8),
+  league_points INT,
+  wins          INT,
+  losses        INT
 );
 
 CREATE VIEW league_records_newest AS
 SELECT DISTINCT ON (summoner_id)
-  summoner_id, tier, division, league_points, wins, losses
+  record_date, summoner_id, tier, division, league_points, wins, losses
   FROM league_records
   ORDER BY summoner_id, record_date DESC;
 
 CREATE VIEW profile_summaries AS
 SELECT
-    account.name,
-    account.tagline,
+  account.name,
+  account.tagline,
 
-    summoner.puuid,
-    summoner.profile_icon_id,
-    summoner.summoner_level,
+  summoner.puuid,
+  summoner.profile_icon_id,
+  summoner.summoner_level,
 
-    league.record_date,
-    league.tier,
-    league.division,
-    league.league_points,
-    league.number_wins,
-    league.number_losses
+  league.record_date,
+  league.tier,
+  league.division,
+  league.league_points,
+  league.wins,
+  league.losses
 FROM
-    summoner_records_newest AS summoner
+  summoner_records_newest AS summoner
 JOIN
-    league_records_newest AS league
+  league_records_newest AS league
 ON
-    summoner.summoner_id = league.summoner_id
+  summoner.summoner_id = league.summoner_id
 JOIN
-    riot_accounts AS account
+  riot_accounts AS account
 ON
-    summoner.puuid = account.puuid;
+  summoner.puuid = account.puuid;
 
 CREATE TABLE match_info_records (
-	record_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  record_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 
-	match_id      riot_match_id NOT NULL,
-    data_version  TEXT          NOT NULL,
-	game_date     TIMESTAMPTZ     NOT NULL,
-	game_duration INTERVAL      NOT NULL,
-	game_patch    VARCHAR(128)  NOT NULL,
+  match_id      riot_match_id NOT NULL,
+  data_version  TEXT          NOT NULL,
+  game_date     TIMESTAMPTZ   NOT NULL,
+  game_duration INTERVAL      NOT NULL,
+  game_patch    VARCHAR(128)  NOT NULL,
 
-    UNIQUE (match_id)
+  UNIQUE (match_id)
 );
 
 CREATE TABLE match_participant_records (
@@ -96,6 +100,7 @@ CREATE TABLE match_participant_records (
     puuid           riot_puuid    NOT NULL,
     team_id         INT           NOT NULL,
     participant_id  INT           NOT NULL,
+    participant_name VARCHAR(50)  NOT NULL,
 
     player_position VARCHAR(10) NOT NULL,
     champion_level  INT         NOT NULL,
@@ -107,6 +112,8 @@ CREATE TABLE match_participant_records (
     assists      INT NOT NULL,
     creep_score  INT NOT NULL,
     vision_score INT NOT NULL,
+    gold_earned  INT NOT NULL,
+    gold_spent   INT NOT NULL,
 
     spell1_id int NOT NULL,
     spell2_id int NOT NULL,
@@ -144,45 +151,19 @@ CREATE TABLE match_participant_records (
     total_damage_dealt_to_champions    INT NOT NULL,
     total_damage_taken                 INT NOT NULL,
 
-    FOREIGN KEY(match_id)
-        REFERENCES match_info_records (match_id),
+    FOREIGN KEY(match_id) REFERENCES match_info_records (match_id),
     UNIQUE (match_id, puuid)
 );
 
 CREATE TABLE match_team_records (
-	record_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  record_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 
-	match_id riot_match_id NOT NULL,
-	team_id  INT           NOT NULL,
-    win      BOOLEAN       NOT NULL,
+  match_id riot_match_id NOT NULL,
+  team_id  INT           NOT NULL,
+  win      BOOLEAN       NOT NULL,
 
-    FOREIGN KEY (match_id) REFERENCES match_info_records (match_id),
-	UNIQUE (match_id, team_id)
-);
-
-CREATE TABLE match_ban_records (
-	record_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-
-	match_id    riot_match_id NOT NULL,
-    team_id     INT           NOT NULL,
-	champion_id INT           NOT NULL,
-	turn        INT           NOT NULL,
-
-    FOREIGN KEY (match_id) REFERENCES match_info_records (match_id),
-    FOREIGN KEY (match_id, team_id) REFERENCES match_team_records (match_id, team_id)
-);
-
-CREATE TABLE match_objective_records (
-	record_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-
-    match_id riot_match_id NOT NULL,
-    team_id  INT           NOT NULL,
-    name     VARCHAR(64)   NOT NULL,
-	first    BOOLEAN       NOT NULL,
-    kills    INT           NOT NULL,
-
-    FOREIGN KEY (match_id) REFERENCES match_info_records (match_id),
-    FOREIGN KEY (match_id, team_id) REFERENCES match_team_records (match_id, team_id)
+  FOREIGN KEY (match_id) REFERENCES match_info_records (match_id),
+  UNIQUE (match_id, team_id)
 );
 
 CREATE VIEW profile_matches AS
@@ -192,11 +173,16 @@ SELECT
     info.game_duration,
     info.game_patch,
 
+    player.participant_name,
     player.puuid,
+    player.team_id,
+    player.participant_id,
     player.kills,
     player.deaths,
     player.assists,
+    player.vision_score,
     player.creep_score,
+    player.gold_earned,
     player.champion_level,
     player.champion_name,
     player.champion_id,
@@ -225,35 +211,27 @@ ON 1=1
     AND info.match_id = team.match_id
     AND player.team_id = team.team_id;
 
-CREATE TABLE match_champion_kill_event_records (
-    record_id UUID default gen_random_uuid() PRIMARY KEY,
-    match_id riot_match_id NOT NULL,
-	timestamp INTERVAL NOT NULL,
-    pos_x INT NOT NULL,
-    pos_y INT NOT NULL,
-    bounty INT NOT NULL,
-    shutdown_bounty INT NOT NULL,
-    killer_id INT NOT NULL,
-    victim_id INT NOT NULL,
-    FOREIGN KEY (match_id) REFERENCES match_info_records (match_id)
+CREATE TABLE match_ban_records (
+  record_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+
+  match_id    riot_match_id NOT NULL,
+  team_id     INT           NOT NULL,
+  champion_id INT           NOT NULL,
+  turn        INT           NOT NULL,
+
+  FOREIGN KEY (match_id, team_id) REFERENCES match_team_records (match_id, team_id)
 );
 
-CREATE TABLE match_item_event_records (
-    record_id UUID default gen_random_uuid() PRIMARY KEY,
-    match_id riot_match_id NOT NULL,
-	timestamp INTERVAL NOT NULL,
-    participant_id INT NOT NULL,
-    item_id INT NOT NULL,
-    FOREIGN KEY (match_id) REFERENCES match_info_records (match_id)
-);
+CREATE TABLE match_objective_records (
+  record_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 
-CREATE TABLE match_spell_event_records (
-    record_id UUID default gen_random_uuid() PRIMARY KEY,
-    match_id riot_match_id NOT NULL,
-	timestamp INTERVAL NOT NULL,
-    participant_id INT NOT NULL,
-    skill_slot INT NOT NULL,
-    FOREIGN KEY (match_id) REFERENCES match_info_records (match_id)
+  match_id riot_match_id NOT NULL,
+  team_id  INT           NOT NULL,
+  name     VARCHAR(64)   NOT NULL,
+  first    BOOLEAN       NOT NULL,
+  kills    INT           NOT NULL,
+
+  FOREIGN KEY (match_id, team_id) REFERENCES match_team_records (match_id, team_id)
 );
 
 ---- create above / drop below ----
@@ -261,13 +239,20 @@ CREATE TABLE match_spell_event_records (
 DROP TABLE summoner_records;
 DROP TABLE league_records;
 DROP TABLE match_info_records;
+DROP TABLE match_participant_records;
 DROP TABLE match_team_records;
 DROP TABLE match_ban_records;
 DROP TABLE match_objective_records;
-DROP TABLE match_participant_records;
 
 DROP VIEW summoner_records_newest;
 DROP VIEW league_records_newest;
+
+DROP FUNCTION get_champion_icon_url;
+
+DROP DOMAIN riot_puuid;
+DROP DOMAIN riot_summoner_id;
+DROP DOMAIN riot_account_id;
+DROP DOMAIN riot_match_id;
 
 -- Write your migrate down statements here. If this migration is irreversible
 -- Then delete the separator line above.
