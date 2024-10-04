@@ -60,8 +60,8 @@ var migrations = []func(tx pgx.Tx) error{
 		);
 
 		CREATE TABLE league_records (
-			record_id uuid default gen_random_uuid() primary key,
-			record_date timestamptz default current_timestamp,
+			record_id     uuid             default gen_random_uuid() primary key,
+			record_date   timestamptz      default current_timestamp,
 			summoner_id   riot_summoner_id not null,
 			league_id     varchar(128),
 			tier          varchar(16),
@@ -125,6 +125,145 @@ var migrations = []func(tx pgx.Tx) error{
 		$$ LANGUAGE plpgsql;
 		`
 
+		_, err = tx.Exec(context.Background(), sql)
+		return err
+	},
+	func(tx pgx.Tx) (err error) {
+		sql := `
+		CREATE TABLE matches (
+			id            riot_match_id primary key,
+			data_version  text          not null,
+			game_date     timestamptz   not null,
+			game_duration interval      not null,
+			game_patch    varchar(32)   not null,
+		);
+
+		CREATE TABLE match_participants (
+			match_id riot_match_id not null,
+			FOREIGN KEY(match_id)
+				REFERENCES matches(id)
+				ON DELETE CASCADE,
+			puuid   riot_puuid  not null,
+			team_id int         not null,
+			id      int         not null,
+			name    varchar(50) not null,
+			unique(match_id, puuid),
+			unique(match_id, id),
+
+			player_position varchar(10) not null,
+			champion_level  int         not null,
+			champion_id     int         not null,
+			champion_name   varchar(30) not null,
+			kills           int         not null,
+			deaths          int         not null,
+			assists         int         not null,
+			creep_score     int         not null,
+			vision_score    int         not null,
+			gold_earned     int         not null,
+			gold_spent      int         not null,
+
+			spell1_id             int not null,
+			spell2_id             int not null,
+			item0_id              int not null,
+			item1_id              int not null,
+			item2_id              int not null,
+			item3_id              int not null,
+			item4_id              int not null,
+			item5_id              int not null,
+			item6_id              int not null,
+			rune_primary_path     int not null,
+			rune_primary_keystone int not null,
+			rune_primary_slot1    int not null,
+			rune_primary_slot2    int not null,
+			rune_primary_slot3    int not null,
+			rune_secondary_path   int not null,
+			rune_secondary_slot1  int not null,
+			rune_secondary_slot2  int not null,
+			rune_shard_slot1      int not null,
+			rune_shard_slot2      int not null,
+			rune_shard_slot3      int not null,
+
+			physical_damage_dealt              int not null,
+			physical_damage_dealt_to_champions int not null,
+			physical_damage_taken              int not null,
+			magic_damage_dealt                 int not null,
+			magic_damage_dealt_to_champions    int not null,
+			magic_damage_taken                 int not null,
+			true_damage_dealt                  int not null,
+			true_damage_dealt_to_champions     int not null,
+			true_damage_taken                  int not null,
+			total_damage_dealt                 int not null,
+			total_damage_dealt_to_champions    int not null,
+			total_damage_taken                 int not null
+		);
+
+		CREATE TABLE match_teams (
+			match_id riot_match_id not null,
+			FOREIGN KEY (match_id)
+				REFERENCES matches(id)
+				ON DELETE CASCADE,
+			id int not null,
+			unique (match_id, team_id),
+
+			win boolean not null
+		);
+
+		CREATE TABLE match_ban_records (
+			match_id riot_match_id not null,
+			team_id  int           not null,
+			FOREIGN KEY (match_id, team_id)
+				REFERENCES match_teams (match_id, team_id)
+				ON DELETE CASCADE,
+			champion_id int not null,
+			turn        int not null
+		);
+
+		CREATE TABLE match_objective_records (
+			match_id riot_match_id NOT NULL,
+			team_id  INT           NOT NULL,
+			FOREIGN KEY (match_id, team_id)
+				REFERENCES match_teams (match_id, team_id)
+				ON DELETE CASCADE,
+			name     VARCHAR(64)   NOT NULL,
+			first    BOOLEAN       NOT NULL,
+			kills    INT           NOT NULL
+		);
+
+		CREATE VIEW profile_matches AS
+		SELECT
+			match.match_id,
+			match.game_date,
+			match.game_duration,
+			match.game_patch,
+			player.participant_name,
+			player.puuid,
+			player.team_id,
+			player.participant_id,
+			player.kills,
+			player.deaths,
+			player.assists,
+			player.vision_score,
+			player.creep_score,
+			player.gold_earned,
+			player.champion_level,
+			player.champion_name,
+			player.champion_id,
+			player.total_damage_dealt_to_champions,
+			player.spell1_id,
+			player.spell2_id,
+			player.item0_id,
+			player.item1_id,
+			player.item2_id,
+			player.item3_id,
+			player.item4_id,
+			player.item5_id,
+			player.rune_primary_keystone,
+			player.rune_secondary_path,
+			team.win
+		FROM matches AS match
+		JOIN match_participants AS player ON match.id = player.match_id
+		JOIN match_teams AS team ON match.id = team.match_id AND player.team_id = team.id;
+		`
 		_, err = tx.Exec(context.Background(), sql)
 		return err
 	},
