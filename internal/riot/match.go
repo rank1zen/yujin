@@ -8,6 +8,11 @@ import (
 	"strconv"
 )
 
+const (
+	TeamBlueSideID = 100
+	TeamRedSideID  = 200
+)
+
 // Get a list of match ids by puuid (ONLY RANKED SOLOQ, queueId 420)
 func (s *Client) GetMatchIdsByPuuid(ctx context.Context, puuid string, start int, count int) ([]string, error) {
 	u := fmt.Sprintf(defaultAmerBaseURL+"/lol/match/v5/matches/by-puuid/%s/ids", puuid)

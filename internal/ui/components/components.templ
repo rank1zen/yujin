@@ -1,0 +1,37 @@
+package components
+
+templ HoverArrowRight() {
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		viewBox="0 0 24 24"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		class="group fill-none stroke-current stroke-2 transition-all"
+	>
+		<line x1="5" y1="12" x2="19" y2="12" class="translate-x-[15px] scale-x-0 transition-transform group-hover:translate-x-0 group-hover:scale-x-100"></line>
+		<polyline points="12 5 19 12 12 19" class="-translate-x-1 transition-transform group-hover:translate-x-0"></polyline>
+	</svg>
+}
+
+templ HoverArrowUp() {
+	<div class="-rotate-90">
+		@HoverArrowRight()
+	</div>
+}
+
+templ HoverArrowDown() {
+	<div class="rotate-90">
+		@HoverArrowRight()
+	</div>
+}
+
+templ Spinner() {
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		viewBox="0 0 24 24"
+		class="animate-spin stroke-current fill-none"
+	>
+		<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+		<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+	</svg>
+}

@@ -7,6 +7,8 @@ import (
 	"net/http"
 )
 
+const QueueTypeRankedSolo5x5 = "RANKED_SOLO_5x5"
+
 type LeagueEntry struct {
 	LeagueId     string      `json:"leagueId"`
 	SummonerId   string      `json:"summonerId"`

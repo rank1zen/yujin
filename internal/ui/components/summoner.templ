@@ -1,0 +1,50 @@
+package components
+
+templ SummonerChampionGrid(championIcon, summ1Icon, summ2Icon, runePrimaryIcon, runeSecondaryIcon string) {
+	<div class="grid grid-cols-5 grid-rows-2 gap-0.5 grid-flow-col">
+		<div class="col-span-2 row-span-2 overflow-hidden rounded-sm">
+			<img class="scale-[1.135] size-full object-cover" src={ championIcon }/>
+		</div>
+		<img class="rounded-sm" src={ summ1Icon }/>
+		<img class="rounded-sm" src={ summ2Icon }/>
+		<div class="grid col-span-2 row-span-2 grid-cols-subgrid grid-rows-subgrid bg-white">
+			<div class="col-start-1 row-start-1 col-span-2 row-span-2">
+				<img src={ runePrimaryIcon } class="size-full"/>
+			</div>
+			<div class="col-start-2 row-start-2 z-10 p-1 bg-white rounded-full overflow-hidden shadow">
+				<img src={ runeSecondaryIcon } class="size-full"/>
+			</div>
+		</div>
+	</div>
+}
+
+templ SummonerChampionGridSkeleton() {
+	<div class="grid grid-cols-5 grid-rows-2 gap-0.5 animate-pulse grid-flow-col">
+		<div class="aspect-square col-span-2 row-span-2 rounded-sm bg-neutral-200 size-full"></div>
+		<div class="aspect-square rounded-sm bg-neutral-200 size-full"></div>
+		<div class="aspect-square rounded-sm bg-neutral-200 size-full"></div>
+		<div class="aspect-square col-span-2 row-span-2 rounded-sm bg-neutral-200 size-full"></div>
+	</div>
+}
+
+templ SummonerItemsGrid(icons []*string) {
+	<div class="grid grid-cols-3 grid-rows-2 gap-0.5">
+		for i := range 6 {
+			if icons[i] == nil {
+				<div class="aspect-square object-cover bg-neutral-900 size-full rounded-sm"></div>
+			} else {
+				<div class="aspect-square size-full">
+					<img class="object-cover size-full rounded-sm" src={ *icons[i] }/>
+				</div>
+			}
+		}
+	</div>
+}
+
+templ SummonerItemsGridSkeleton() {
+	<div class="grid grid-cols-3 grid-rows-2 gap-0.5 animate-pulse">
+		for range 6 {
+			<div class="rounded-sm bg-neutral-200 size-full"></div>
+		}
+	</div>
+}

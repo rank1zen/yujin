@@ -1,7 +1,11 @@
 -- Write your migrate up statements here
 
 CREATE FUNCTION get_champion_icon_url(id INT) RETURNS VARCHAR(128) AS $$
-  SELECT FORMAT('FIXME/%s', $1) -- FIXME:
+  SELECT FORMAT('https://cdn.communitydragon.org/14.16.1/champion/%s/square', $1)
+$$ LANGUAGE SQL;
+
+CREATE FUNCTION get_item_icon_url(id INT) RETURNS VARCHAR(128) AS $$
+  SELECT FORMAT('https://ddragon.leagueoflegends.com/cdn/14.16.1/img/item/%s.png', $1)
 $$ LANGUAGE SQL;
 
 CREATE DOMAIN riot_puuid       AS CHAR(78);

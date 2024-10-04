@@ -10,8 +10,6 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/rank1zen/yujin/internal/database/migrate"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
@@ -22,23 +20,21 @@ var (
 
 const (
 	dbname = "testing"
-	dbuser = "yuijn"
+	dbuser = "yujin"
 	dbpass = "secret"
 )
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	opts := []testcontainers.ContainerCustomizer{
+	var err error
+	container, err = postgres.Run(ctx, "docker.io/postgres:16-alpine",
 		postgres.WithDatabase(dbname),
 		postgres.WithUsername(dbuser),
 		postgres.WithPassword(dbpass),
 		postgres.BasicWaitStrategies(),
 		postgres.WithSQLDriver("pgx"),
-	}
-
-	var err error
-	container, err = postgres.Run(ctx, "docker.io/postgres:13-alpine", opts...)
+	)
 	if err != nil {
 		log.Fatalf("running postgres container: %s", err)
 	}
@@ -93,30 +89,4 @@ func setupDB(tb testing.TB) *DB {
 	})
 
 	return db
-}
-
-func TestGetProfileSummary(t *testing.T) {
-	ctx := context.Background()
-
-	db := setupDB(t)
-
-	m, err := db.GetProfileSummary(ctx, "doublelift-na1")
-	assert.NoError(t, err)
-
-	log.Print(m)
-}
-
-func TestGetProfileMatchList(t *testing.T) {
-	ctx := context.Background()
-
-	db := setupDB(t)
-
-	matches, err := db.GetProfileMatchList(ctx, "doublelift-na1", 0, true)
-	if assert.NoError(t, err) {
-		log.Println(matches[0])
-		log.Println(matches[1])
-		log.Println(matches[2])
-		log.Println(matches[3])
-		log.Println(matches[4])
-	}
 }

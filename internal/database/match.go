@@ -11,6 +11,102 @@ import (
 	"github.com/rank1zen/yujin/internal/riot"
 )
 
+type MatchParticipant struct {
+	Name       string
+	Rank       string
+	Kills      string
+	Deaths     string
+	Assists    string
+	CreepScore string
+	CsPer10    string
+	Damage     string
+
+	ChampionIcon      string
+	RunePrimaryIcon   string
+	RuneSecondaryIcon string
+	Spell1Icon        string
+	Spell2Icon        string
+	ItemIcons         []*string
+}
+
+type Match struct {
+	MatchId      string
+	GamePatch    string
+	GameDuration string
+	GameDate     string
+	RedSide      []MatchParticipant
+	BlueSide     []MatchParticipant
+}
+
+func (db *DB) MatchGet(ctx context.Context, name, matchID string) (Match, error) {
+	var m Match
+
+	batch := &pgx.Batch{}
+
+	batch.Queue(`
+	SELECT
+		match_id,
+		game_patch,
+		EXTRACT(MINUTE FROM game_duration) || 'm ' || EXTRACT(SECOND FROM game_duration) || 's' AS game_duration,
+		TO_CHAR(game_date, 'MM-DD HH24:MI') AS game_date
+	FROM
+		match_info_records
+	WHERE
+		match_id = $1;
+	`, matchID).QueryRow(func(row pgx.Row) error {
+		err := row.Scan(&m.MatchId, &m.GamePatch, &m.GameDuration, &m.GameDate)
+		if err != nil {
+			return fmt.Errorf("getting match info: %w", err)
+		}
+		return nil
+	})
+
+	getPostGame := func(teamID int, dst *[]MatchParticipant) {
+		batch.Queue(`
+		SELECT
+			participant_name AS name,
+			'???' AS rank,
+			kills, deaths, assists,
+			creep_score, TO_CHAR(60 * creep_score / EXTRACT(epoch FROM game_duration), 'FM99999.0') AS cs_per_10,
+			total_damage_dealt_to_champions AS damage,
+			FORMAT('https://cdn.communitydragon.org/14.16.1/champion/%s/square', champion_id) AS champion_icon_url,
+			array[item0_id, item1_id, item2_id, item3_id, item4_id, item5_id] as items,
+			array[spell1_id, spell2_id] as spells,
+			rune_primary_keystone AS rune_primary,
+			rune_secondary_path AS rune_secondary
+		FROM
+			profile_matches
+		WHERE 1=1
+			AND match_id = $1
+			AND team_id = $2
+		ORDER BY
+			participant_id;
+		`, matchID, teamID).Query(func(rows pgx.Rows) error {
+			collectedRows, err := pgx.CollectRows(rows, pgx.RowToStructByName[MatchParticipant])
+			if err != nil {
+				return fmt.Errorf("getting team: %w", err)
+			}
+
+			if len(collectedRows) != 5 {
+				logging.FromContext(ctx).DPanic("team does not have 5")
+			}
+
+			*dst = collectedRows
+			return nil
+		})
+	}
+
+	getPostGame(100, &m.BlueSide)
+	getPostGame(200, &m.RedSide)
+
+	err := db.pool.SendBatch(ctx, batch).Close()
+	if err != nil {
+		return Match{}, err
+	}
+
+	return m, nil
+}
+
 func ensureMatchList(ctx context.Context, db pgxutil.Conn, r *riot.Client, puuid string, start, count int) error {
 	ids, err := r.GetMatchIdsByPuuid(ctx, puuid, start, count)
 	if err != nil {
@@ -37,7 +133,7 @@ func ensureMatchList(ctx context.Context, db pgxutil.Conn, r *riot.Client, puuid
 			return fmt.Errorf("riot match: %w", err)
 		}
 
-		batchInsertRiotMatch(batch, match)
+		matchBatchInsert(batch, match)
 	}
 
 	batchRes := db.SendBatch(ctx, batch)
@@ -53,23 +149,21 @@ func ensureMatchList(ctx context.Context, db pgxutil.Conn, r *riot.Client, puuid
 	return nil
 }
 
-func batchInsertRiotMatch(batch *pgx.Batch, m *riot.Match) {
-	matchInfoRow := map[string]any{
-		"match_id":      m.Metadata.MatchId,
-		"data_version":  m.Metadata.DataVersion,
-		"game_date":     time.Unix(m.Info.GameEndTimestamp/1000, 0),
-		"game_duration": time.Duration(m.Info.GameDuration) * time.Second,
-		"game_patch":    m.Info.GameVersion,
-	}
+type riotMatchRows struct {
+	MatchInfoRow         map[string]any
+	MatchParticipantRows []map[string]any
+	MatchTeamRows        []map[string]any
+}
 
-	pgxutil.BatchInsertRow(batch, "match_info_records", matchInfoRow)
-
+func riotMatchToRows(m *riot.Match) riotMatchRows {
+	var matchParticipantRows []map[string]any
 	for _, p := range m.Info.Participants {
-		matchParticipantRow := map[string]any{
-			"match_id":       m.Metadata.MatchId,
-			"puuid":          p.PUUID,
-			"team_id":        p.TeamID,
-			"participant_id": p.ParticipantID,
+		row := map[string]any{
+			"match_id":         m.Metadata.MatchId,
+			"puuid":            p.PUUID,
+			"team_id":          p.TeamID,
+			"participant_id":   p.ParticipantID,
+			"participant_name": p.RiotIDGameName + "#" + p.RiotIDTagline,
 
 			"player_position": p.Role,
 			"champion_level":  p.ChampLevel,
@@ -81,6 +175,8 @@ func batchInsertRiotMatch(batch *pgx.Batch, m *riot.Match) {
 			"deaths":       p.Deaths,
 			"creep_score":  p.TotalMinionsKilled + p.NeutralMinionsKilled,
 			"vision_score": p.VisionScore,
+			"gold_earned":  p.GoldEarned,
+			"gold_spent":   p.GoldSpent,
 
 			"spell1_id": p.Summoner1ID,
 			"spell2_id": p.Summoner2ID,
@@ -119,16 +215,70 @@ func batchInsertRiotMatch(batch *pgx.Batch, m *riot.Match) {
 			"total_damage_taken":                 p.TotalDamageTaken,
 		}
 
-		pgxutil.BatchInsertRow(batch, "match_participant_records", matchParticipantRow)
+		matchParticipantRows = append(matchParticipantRows, row)
 	}
 
+	var matchTeamRows []map[string]any
 	for _, t := range m.Info.Teams {
-		matchTeamRow := map[string]any{
+		row := map[string]any{
 			"match_id": m.Metadata.MatchId,
 			"team_id":  t.TeamId,
-			"win": t.Win,
+			"win":      t.Win,
 		}
 
-		pgxutil.BatchInsertRow(batch, "match_team_records", matchTeamRow)
+		matchTeamRows = append(matchTeamRows, row)
+	}
+
+	return riotMatchRows{
+		MatchInfoRow: map[string]any{
+			"match_id":      m.Metadata.MatchId,
+			"data_version":  m.Metadata.DataVersion,
+			"game_date":     riotUnixToDate(m.Info.GameEndTimestamp),
+			"game_duration": time.Duration(m.Info.GameDuration) * time.Second,
+			"game_patch":    m.Info.GameVersion,
+		},
+		MatchParticipantRows: matchParticipantRows,
+		MatchTeamRows:        matchTeamRows,
+	}
+}
+
+func matchInsert(ctx context.Context, db pgxutil.Conn, m *riot.Match) error {
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	rows := riotMatchToRows(m)
+
+	pgxutil.QueryInsertRow(ctx, db, "match_info_records", rows.MatchInfoRow)
+
+	for _, p := range rows.MatchParticipantRows {
+		pgxutil.QueryInsertRow(ctx, db, "match_participant_records", p)
+	}
+
+	for _, p := range rows.MatchTeamRows {
+		pgxutil.QueryInsertRow(ctx, db, "match_team_records", p)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func matchBatchInsert(batch *pgx.Batch, m *riot.Match) {
+	rows := riotMatchToRows(m)
+
+	pgxutil.BatchInsertRow(batch, "match_info_records", rows.MatchInfoRow)
+
+	for _, p := range rows.MatchParticipantRows {
+		pgxutil.BatchInsertRow(batch, "match_participant_records", p)
+	}
+
+	for _, p := range rows.MatchTeamRows {
+		pgxutil.BatchInsertRow(batch, "match_team_records", p)
 	}
 }
