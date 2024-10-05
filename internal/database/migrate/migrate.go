@@ -2,13 +2,10 @@ package migrate
 
 import (
 	"context"
-	"embed"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 )
-
-//go:embed migrations/*.sql
-var embeddedQueries embed.FS
 
 func Migrate(ctx context.Context, conn *pgx.Conn) error {
 	tx, err := conn.Begin(ctx)
@@ -17,10 +14,10 @@ func Migrate(ctx context.Context, conn *pgx.Conn) error {
 	}
 	defer tx.Rollback(ctx)
 
-	for _, m := range migrations {
-		err := m(tx)
+	for i, f := range migrations {
+		err := f(tx)
 		if err != nil {
-			return err
+			return fmt.Errorf("[migration %d]: %w", i, err)
 		}
 	}
 
@@ -124,7 +121,6 @@ var migrations = []func(tx pgx.Tx) error{
 		END;
 		$$ LANGUAGE plpgsql;
 		`
-
 		_, err = tx.Exec(context.Background(), sql)
 		return err
 	},
@@ -135,7 +131,7 @@ var migrations = []func(tx pgx.Tx) error{
 			data_version  text          not null,
 			game_date     timestamptz   not null,
 			game_duration interval      not null,
-			game_patch    varchar(32)   not null,
+			game_patch    varchar(32)   not null
 		);
 
 		CREATE TABLE match_participants (
@@ -143,10 +139,10 @@ var migrations = []func(tx pgx.Tx) error{
 			FOREIGN KEY(match_id)
 				REFERENCES matches(id)
 				ON DELETE CASCADE,
-			puuid   riot_puuid  not null,
 			team_id int         not null,
 			id      int         not null,
 			name    varchar(50) not null,
+			puuid   riot_puuid  not null,
 			unique(match_id, puuid),
 			unique(match_id, id),
 
@@ -162,26 +158,20 @@ var migrations = []func(tx pgx.Tx) error{
 			gold_earned     int         not null,
 			gold_spent      int         not null,
 
-			spell1_id             int not null,
-			spell2_id             int not null,
-			item0_id              int not null,
-			item1_id              int not null,
-			item2_id              int not null,
-			item3_id              int not null,
-			item4_id              int not null,
-			item5_id              int not null,
-			item6_id              int not null,
-			rune_primary_path     int not null,
-			rune_primary_keystone int not null,
-			rune_primary_slot1    int not null,
-			rune_primary_slot2    int not null,
-			rune_primary_slot3    int not null,
-			rune_secondary_path   int not null,
-			rune_secondary_slot1  int not null,
-			rune_secondary_slot2  int not null,
-			rune_shard_slot1      int not null,
-			rune_shard_slot2      int not null,
-			rune_shard_slot3      int not null,
+			items                 int[7] not null,
+			spell1_id             int    not null,
+			spell2_id             int    not null,
+			rune_primary_path     int    not null,
+			rune_primary_keystone int    not null,
+			rune_primary_slot1    int    not null,
+			rune_primary_slot2    int    not null,
+			rune_primary_slot3    int    not null,
+			rune_secondary_path   int    not null,
+			rune_secondary_slot1  int    not null,
+			rune_secondary_slot2  int    not null,
+			rune_shard_slot1      int    not null,
+			rune_shard_slot2      int    not null,
+			rune_shard_slot3      int    not null,
 
 			physical_damage_dealt              int not null,
 			physical_damage_dealt_to_champions int not null,
@@ -203,42 +193,17 @@ var migrations = []func(tx pgx.Tx) error{
 				REFERENCES matches(id)
 				ON DELETE CASCADE,
 			id int not null,
-			unique (match_id, team_id),
-
+			unique (match_id, id),
 			win boolean not null
-		);
-
-		CREATE TABLE match_ban_records (
-			match_id riot_match_id not null,
-			team_id  int           not null,
-			FOREIGN KEY (match_id, team_id)
-				REFERENCES match_teams (match_id, team_id)
-				ON DELETE CASCADE,
-			champion_id int not null,
-			turn        int not null
-		);
-
-		CREATE TABLE match_objective_records (
-			match_id riot_match_id NOT NULL,
-			team_id  INT           NOT NULL,
-			FOREIGN KEY (match_id, team_id)
-				REFERENCES match_teams (match_id, team_id)
-				ON DELETE CASCADE,
-			name     VARCHAR(64)   NOT NULL,
-			first    BOOLEAN       NOT NULL,
-			kills    INT           NOT NULL
 		);
 
 		CREATE VIEW profile_matches AS
 		SELECT
-			match.match_id,
-			match.game_date,
-			match.game_duration,
-			match.game_patch,
-			player.participant_name,
-			player.puuid,
+			player.match_id,
 			player.team_id,
-			player.participant_id,
+			player.id,
+			player.name,
+			player.puuid,
 			player.kills,
 			player.deaths,
 			player.assists,
@@ -251,18 +216,62 @@ var migrations = []func(tx pgx.Tx) error{
 			player.total_damage_dealt_to_champions,
 			player.spell1_id,
 			player.spell2_id,
-			player.item0_id,
-			player.item1_id,
-			player.item2_id,
-			player.item3_id,
-			player.item4_id,
-			player.item5_id,
+			player.items,
 			player.rune_primary_keystone,
 			player.rune_secondary_path,
+			match.game_date,
+			match.game_duration,
+			match.game_patch,
 			team.win
-		FROM matches AS match
-		JOIN match_participants AS player ON match.id = player.match_id
+		FROM match_participants AS player
+		JOIN matches AS match ON match.id = player.match_id
 		JOIN match_teams AS team ON match.id = team.match_id AND player.team_id = team.id;
+		`
+		_, err = tx.Exec(context.Background(), sql)
+		return err
+	},
+	func(tx pgx.Tx) (err error) {
+		sql := `
+		CREATE FUNCTION format_cs_per10(cs int, game_duration interval) RETURNS char(4) AS $$
+		BEGIN
+			RETURN TO_CHAR(60 * cs / EXTRACT(epoch FROM game_duration), 'FM99.0');
+		END;
+		$$ LANGUAGE plpgsql;
+
+		CREATE FUNCTION format_kill_participation() RETURNS char(3) AS $$
+		BEGIN
+			RETURN '20%';
+		END;
+		$$ LANGUAGE plpgsql;
+
+		CREATE FUNCTION format_damage_relative() RETURNS char(3) AS $$
+		BEGIN
+			RETURN '80%';
+		END;
+		$$ LANGUAGE plpgsql;
+
+		CREATE FUNCTION get_champion_icon_url(id int) RETURNS varchar(128) AS $$
+		BEGIN
+			RETURN FORMAT('https://cdn.communitydragon.org/14.16.1/champion/%s/square', id);
+		END;
+		$$ LANGUAGE plpgsql;
+
+		CREATE FUNCTION get_item_icon_urls(ids int[]) RETURNS text[] AS $$
+		DECLARE
+			urls text[] := array_fill(NULL::text, ARRAY[7]);
+		BEGIN
+			IF array_length(ids, 1) != 7 THEN
+				RAISE EXCEPTION 'must have exactly 7 items';
+			END IF;
+
+			FOR i IN 1..7 LOOP
+				IF ids[i] != 0 THEN
+					urls[i] := FORMAT('https://ddragon.leagueoflegends.com/cdn/14.16.1/img/item/%s.png', ids[i]);
+				END IF;
+			END LOOP;
+			RETURN urls;
+		END;
+		$$ LANGUAGE plpgsql;
 		`
 		_, err = tx.Exec(context.Background(), sql)
 		return err

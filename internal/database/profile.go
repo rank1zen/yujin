@@ -168,20 +168,15 @@ type ProfileMatch struct {
 	Spell1Icon        string `db:"-"`
 	Spell2Icon        string `db:"-"`
 
-	ItemIcons []*string `db:"-"`
+	ItemIcons []*string
 }
 
 type ProfileMatchList []ProfileMatch
 
-func (db *DB) ProfileGetMatchList(ctx context.Context, name string, page int, ensure bool) (ProfileMatchList, error) {
-	ids, err := db.GetAccount(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-
+func (db *DB) ProfileGetMatchList(ctx context.Context, puuid string, page int, ensure bool) (ProfileMatchList, error) {
 	start, count := 10*page, 10
 	if ensure {
-		err := ensureMatchList(ctx, db.pool, db.riot, ids.Puuid, start, count)
+		err := ensureMatchList(ctx, db.pool, db.riot, puuid, start, count)
 		if err != nil {
 			return nil, fmt.Errorf("ensuring matchlist: %w", err)
 		}
@@ -195,9 +190,9 @@ func (db *DB) ProfileGetMatchList(ctx context.Context, name string, page int, en
 		TO_CHAR(gold_earned, 'FM999,999') AS gold_earned,
 		vision_score,
 
-		'80%' AS kill_participation,
-		TO_CHAR(60 * creep_score / EXTRACT(epoch FROM game_duration), 'FM99.0') AS creep_score_per10,
-		'26%' AS damage_percentage,
+		format_kill_participation() AS kill_participation,
+		format_cs_per10(creep_score, game_duration) AS creep_score_per10,
+		format_damage_relative() AS damage_percentage,
 		'34%' AS gold_percentage,
 
 		match_id,
@@ -206,14 +201,13 @@ func (db *DB) ProfileGetMatchList(ctx context.Context, name string, page int, en
 		win AS player_win,
 		'??' AS lp_delta,
 
-		get_champion_icon_url(champion_id) AS champion_icon
-	FROM
-		profile_matches
-	WHERE
-		puuid = $1
+		get_champion_icon_url(champion_id) AS champion_icon,
+		get_item_icon_urls(items) AS item_icons
+	FROM profile_matches
+	WHERE puuid = $1
 	ORDER BY game_date DESC
 	OFFSET $2 LIMIT $3;
-	`, ids.Puuid, start, count)
+	`, puuid, start, count)
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[ProfileMatch])
 }

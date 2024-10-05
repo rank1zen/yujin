@@ -33,13 +33,11 @@ func TestProfileGetMatchListTestdata(t *testing.T) {
 	err := matchInsert(ctx, db.pool, testdata.GetMatch("NA1_5011055088"))
 	require.NoError(t, err)
 
-	m, err := db.ProfileGetMatchList(ctx, "orrange-na1", 0, false)
+	m, err := db.ProfileGetMatchList(ctx, "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q", 0, false)
 	require.NoError(t, err)
 	if assert.Len(t, m, 1) {
-		res := m[0]
-		log.Println(res.ChampionIcon)
+		log.Println(m[0])
 	}
-
 }
 
 func TestProfileGetMatchList(t *testing.T) {
