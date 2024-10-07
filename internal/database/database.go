@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rank1zen/yujin/internal/logging"
 	"github.com/rank1zen/yujin/internal/pgxutil"
 	"github.com/rank1zen/yujin/internal/riot"
 	"go.opentelemetry.io/otel/trace"
@@ -73,6 +74,51 @@ func riotGetSummonerID(ctx context.Context, riot *riot.Client, puuid string) (st
 
 func riotUnixToDate(ts int64) time.Time {
 	return time.Unix(0, ts)
+}
+
+func dbGetItemIconUrls(ctx context.Context, db pgxutil.Conn, ids []int) []*string {
+	var urls []*string
+	err := db.QueryRow(ctx, `SELECT get_item_icon_urls($1)`, ids).Scan(&urls)
+	if err != nil {
+		logging.FromContext(ctx).Sugar().DPanic(err)
+	}
+	return urls
+}
+
+func dbGetChampionIconUrl(ctx context.Context, db pgxutil.Conn, id int) string {
+	var url string
+	err := db.QueryRow(ctx, `SELECT get_item_icon_urls($1)`, id).Scan(&url)
+	if err != nil {
+		logging.FromContext(ctx).Sugar().DPanic(err)
+	}
+	return url
+}
+
+func dbGetSummonersIconUrls(ctx context.Context, db pgxutil.Conn, ids []int) []string {
+	var urls []string
+	err := db.QueryRow(ctx, `SELECT get_summoners_icon_urls($1)`, ids).Scan(&urls)
+	if err != nil {
+		logging.FromContext(ctx).Sugar().DPanic(err)
+	}
+	return urls
+}
+
+func dbGetRuneIconUrl(ctx context.Context, db pgxutil.Conn, id int) string {
+	var url string
+	err := db.QueryRow(ctx, `SELECT get_rune_icon_urls($1)`, id).Scan(&url)
+	if err != nil {
+		logging.FromContext(ctx).Sugar().DPanic(err)
+	}
+	return url
+}
+
+func dbGetRuneTreeIconUrl(ctx context.Context, db pgxutil.Conn, id int) string {
+	var url string
+	err := db.QueryRow(ctx, `SELECT get_rune_tree_icon_urls($1)`, id).Scan(&url)
+	if err != nil {
+		logging.FromContext(ctx).Sugar().DPanic(err)
+	}
+	return url
 }
 
 type Account struct {

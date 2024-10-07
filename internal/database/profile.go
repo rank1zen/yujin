@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rank1zen/yujin/internal/ddragon"
 	"github.com/rank1zen/yujin/internal/logging"
 	"github.com/rank1zen/yujin/internal/pgxutil"
 	"github.com/rank1zen/yujin/internal/riot"
@@ -145,16 +144,15 @@ func (db *DB) ProfileGetHeader(ctx context.Context, puuid string) (ProfileHeader
 }
 
 type ProfileMatch struct {
-	KillDeathAssist string
-	CreepScore      string
-	DamageDone      string
-	GoldEarned      string
-	VisionScore     string
-
+	KillDeathAssist   string
 	KillParticipation string
+	CreepScore        string
 	CreepScorePer10   string
+	DamageDone        string
 	DamagePercentage  string
+	GoldEarned        string
 	GoldPercentage    string
+	VisionScore       string
 
 	MatchId      string
 	GameDate     string
@@ -163,12 +161,10 @@ type ProfileMatch struct {
 	LpDelta      string
 
 	ChampionIcon      string
-	RunePrimaryIcon   string `db:"-"`
-	RuneSecondaryIcon string `db:"-"`
-	Spell1Icon        string `db:"-"`
-	Spell2Icon        string `db:"-"`
-
-	ItemIcons []*string
+	RunePrimaryIcon   string
+	RuneSecondaryIcon string
+	SummonersIcons    []string
+	ItemIcons         []*string
 }
 
 type ProfileMatchList []ProfileMatch
@@ -202,7 +198,8 @@ func (db *DB) ProfileGetMatchList(ctx context.Context, puuid string, page int, e
 		'??' AS lp_delta,
 
 		get_champion_icon_url(champion_id) AS champion_icon,
-		get_item_icon_urls(items) AS item_icons
+		get_item_icon_urls(items) AS item_icons,
+		get_summoners_icon_urls(summoners) AS summoners_icons
 	FROM profile_matches
 	WHERE puuid = $1
 	ORDER BY game_date DESC
@@ -213,16 +210,16 @@ func (db *DB) ProfileGetMatchList(ctx context.Context, puuid string, page int, e
 }
 
 type ProfileLiveGameParticipant struct {
-	SummonerId        string
-	SummonerName      string
+	SummonerId   string
+	SummonerName string
+	Rank         string
+	WinLoss      string
+	WinLossRatio string
+
 	ChampionIcon      string
 	RunePrimaryIcon   string
 	RuneSecondaryIcon string
-	Spell1Icon        string
-	Spell2Icon        string
-	Rank              string
-	WinLoss           string
-	WinLossRatio      string
+	SummonersIcons    []string
 }
 
 type ProfileLiveGame struct {
@@ -233,13 +230,8 @@ type ProfileLiveGame struct {
 	BlueSideBanIcons []string
 }
 
-func (db *DB) ProfileGetLiveGame(ctx context.Context, name string) (ProfileLiveGame, error) {
-	ids, err := db.GetAccount(ctx, name)
-	if err != nil {
-		return ProfileLiveGame{}, err
-	}
-
-	game, err := db.riot.GetCurrentGameInfoByPuuid(ctx, ids.Puuid)
+func (db *DB) ProfileGetLiveGame(ctx context.Context, puuid string) (ProfileLiveGame, error) {
+	game, err := db.riot.GetCurrentGameInfoByPuuid(ctx, puuid)
 	if err != nil {
 		return ProfileLiveGame{}, err
 	}
@@ -253,13 +245,18 @@ func (db *DB) ProfileGetLiveGame(ctx context.Context, name string) (ProfileLiveG
 			return ProfileLiveGame{}, err
 		}
 
+		summonersIcons := dbGetSummonersIconUrls(ctx, db.pool, []int{player.Spell1Id, player.Spell2Id})
+		championIcon := dbGetChampionIconUrl(ctx, db.pool, player.ChampionId)
+		runePrimaryIcon := dbGetRuneIconUrl(ctx, db.pool, player.Perks.PerkIds[riot.PerkKeystone])
+		runeSecondaryIcon := dbGetRuneTreeIconUrl(ctx, db.pool, player.Perks.PerkStyle)
+
 		p := ProfileLiveGameParticipant{
-			SummonerName: name,
-			SummonerId:   player.SummonerId,
-			// RunePrimaryIcon:   player.Perks.PerkStyle,
-			RuneSecondaryIcon: ddragon.GetRuneTreeIconUrl(player.Perks.PerkSubStyle),
-			Spell1Icon:        ddragon.GetSummonerSpellUrl(player.Spell1Id),
-			Spell2Icon:        ddragon.GetSummonerSpellUrl(player.Spell2Id),
+			SummonerName:      name,
+			SummonerId:        player.SummonerId,
+			ChampionIcon:      championIcon,
+			RunePrimaryIcon:   runePrimaryIcon,
+			RuneSecondaryIcon: runeSecondaryIcon,
+			SummonersIcons:    summonersIcons,
 		}
 
 		switch player.TeamId {
@@ -272,15 +269,14 @@ func (db *DB) ProfileGetLiveGame(ctx context.Context, name string) (ProfileLiveG
 		}
 	}
 
-	m.BlueSideBanIcons = make([]string, 5)
-	m.RedSideBanIcons = make([]string, 5)
 	for _, ban := range game.BannedChampions {
-		icon := ddragon.GetChampionIconUrl(1)
+		championIcon := dbGetChampionIconUrl(ctx, db.pool, ban.ChampionId)
+
 		switch ban.TeamId {
 		case riot.TeamBlueSideID:
-			m.BlueSideBanIcons[0] = icon
+			m.BlueSideBanIcons = append(m.BlueSideBanIcons, championIcon)
 		case riot.TeamRedSideID:
-			m.RedSideBanIcons[0] = icon
+			m.RedSideBanIcons = append(m.RedSideBanIcons, championIcon)
 		default:
 			logging.FromContext(ctx).Sugar().DPanicf("invalid team id: %d", ban.TeamId)
 		}

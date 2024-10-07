@@ -44,6 +44,9 @@ type SpectatorCurrentGameParticipant struct {
 	GameCustomizationObjects []SpectatorCustomizationObject `json:"gameCustomizationObjects"`
 }
 
+const PerkKeystone = 0
+const PerkSecondary = 1
+
 type SpectatorPerks struct {
 	PerkIds      []int `json:"perkIds"`
 	PerkStyle    int   `json:"perkStyle"`

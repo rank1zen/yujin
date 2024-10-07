@@ -177,10 +177,8 @@ func riotMatchToRows(m *riot.Match) riotMatchRows {
 			"champion_id":     p.ChampionID,
 			"champion_name":   p.ChampionName,
 
-			"spell1_id": p.Summoner1ID,
-			"spell2_id": p.Summoner2ID,
-
-			"items": []int{p.Item0, p.Item1, p.Item3, p.Item3, p.Item4, p.Item5, p.Item6},
+			"items":     []int{p.Item0, p.Item1, p.Item3, p.Item3, p.Item4, p.Item5, p.Item6},
+			"summoners": []int{p.Summoner1ID, p.Summoner2ID},
 
 			"rune_primary_path":     p.Perks.Styles[0].Style,
 			"rune_primary_keystone": p.Perks.Styles[0].Selections[0].Perk,
