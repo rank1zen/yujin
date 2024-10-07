@@ -76,6 +76,10 @@ func riotUnixToDate(ts int64) time.Time {
 	return time.Unix(0, ts)
 }
 
+func riotDurationToInterval(dur int) time.Duration {
+	return time.Duration(dur) * time.Second
+}
+
 func dbGetItemIconUrls(ctx context.Context, db pgxutil.Conn, ids []int) []*string {
 	var urls []*string
 	err := db.QueryRow(ctx, `SELECT get_item_icon_urls($1)`, ids).Scan(&urls)

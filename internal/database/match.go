@@ -225,7 +225,7 @@ func riotMatchToRows(m *riot.Match) riotMatchRows {
 			"id":            m.Metadata.MatchId,
 			"data_version":  m.Metadata.DataVersion,
 			"game_date":     riotUnixToDate(m.Info.GameEndTimestamp),
-			"game_duration": time.Duration(m.Info.GameDuration) * time.Second,
+			"game_duration": riotDurationToInterval(m.Info.GameDuration),
 			"game_patch":    m.Info.GameVersion,
 		},
 		MatchParticipantRows: matchParticipantRows,
