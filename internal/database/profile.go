@@ -223,12 +223,15 @@ type ProfileLiveGameParticipant struct {
 	SummonersIcons    [2]string
 }
 
+type ProfileLiveGameTeam struct {
+	Participants     [5]ProfileLiveGameParticipant
+	ChampionBanIcons [5]string
+}
+
 type ProfileLiveGame struct {
-	GameStartDate    string
-	RedSide          [5]ProfileLiveGameParticipant
-	BlueSide         [5]ProfileLiveGameParticipant
-	RedSideBanIcons  [5]string
-	BlueSideBanIcons [5]string
+	GameStartDate string
+	BlueTeam      ProfileLiveGameTeam
+	RedTeam       ProfileLiveGameTeam
 }
 
 func (db *DB) ProfileGetLiveGame(ctx context.Context, puuid string) (ProfileLiveGame, error) {
