@@ -80,8 +80,8 @@ func riotDurationToInterval(dur int) time.Duration {
 	return time.Duration(dur) * time.Second
 }
 
-func dbGetItemIconUrls(ctx context.Context, db pgxutil.Conn, ids []int) []*string {
-	var urls []*string
+func dbGetItemIconUrls(ctx context.Context, db pgxutil.Conn, ids [7]int) [7]*string {
+	var urls [7]*string
 	err := db.QueryRow(ctx, `SELECT get_item_icon_urls($1)`, ids).Scan(&urls)
 	if err != nil {
 		logging.FromContext(ctx).Sugar().DPanic(err)
@@ -98,8 +98,8 @@ func dbGetChampionIconUrl(ctx context.Context, db pgxutil.Conn, id int) string {
 	return url
 }
 
-func dbGetSummonersIconUrls(ctx context.Context, db pgxutil.Conn, ids []int) []string {
-	var urls []string
+func dbGetSummonersIconUrls(ctx context.Context, db pgxutil.Conn, ids [2]int) [2]string {
+	var urls [2]string
 	err := db.QueryRow(ctx, `SELECT get_summoners_icon_urls($1)`, ids).Scan(&urls)
 	if err != nil {
 		logging.FromContext(ctx).Sugar().DPanic(err)

@@ -12,12 +12,12 @@ templ ProfileMatch(m database.ProfileMatch) {
 	<tr>
 		<td class="pr-2">
 			<div class="grid grid-flow-col grid-cols-[repeat(5,1.4rem)] gap-0.5 grid-rows-[repeat(2,1.4rem)]">
-				@components.SummonerChampionGrid(m.ChampionIcon, m.Spell1Icon, m.Spell2Icon, m.RunePrimaryIcon, m.RuneSecondaryIcon)
+				@components.SummonerChampionGrid(m.ChampionIcon, m.SummonersIcons, m.RunePrimaryIcon, m.RuneSecondaryIcon)
 			</div>
 		</td>
 		<td class="py-1 pr-2">
 			<div class="flex flex-col leading-none">
-				<div>{ m.Kills } / { m.Deaths } / { m.Assists }</div>
+				<div>{m.KillDeathAssist}</div>
 				<div class="text-xs">{ m.KillParticipation }</div>
 			</div>
 		</td>
@@ -29,13 +29,13 @@ templ ProfileMatch(m database.ProfileMatch) {
 		</td>
 		<td class="py-1 pr-2">
 			<div class="flex flex-col leading-none">
-				<div>{ m.Damage }</div>
+				<div>{ m.DamageDone }</div>
 				<div class="text-xs">{ m.DamagePercentage }</div>
 			</div>
 		</td>
 		<td class="py-1 pr-2">
 			<div class="flex flex-col leading-none">
-				<div>{ m.Gold }</div>
+				<div>{ m.GoldEarned }</div>
 				<div class="text-xs">{ m.GoldPercentage }</div>
 			</div>
 		</td>
@@ -70,7 +70,7 @@ templ ProfileMatchList(m database.ProfileMatchList) {
 	}
 }
 
-templ ProfileMatchListPartial(name string) {
+templ ProfileMatchListPartial(puuid string) {
 	<div x-data="{ loading: false, page: 0, get next() { return ++this.page; } }">
 		<table class="text-left w-full">
 			<thead>
@@ -86,7 +86,7 @@ templ ProfileMatchListPartial(name string) {
 					<th>Date</th>
 				</tr>
 			</thead>
-			<tbody hx-get={ "/profile/" + name + "/matchlist" } hx-trigger="load">
+			<tbody hx-get={ "/profile/" + puuid + "/matchlist" } hx-trigger="load">
 				@ProfileMatchListSkeleton()
 			</tbody>
 		</table>
@@ -95,7 +95,7 @@ templ ProfileMatchListPartial(name string) {
 		</div>
 		<button
 			x-on:click="loading = true"
-			hx-get={ fmt.Sprintf("/profile/%s/matchlist", name) }
+			hx-get={ fmt.Sprintf("/profile/%s/matchlist", puuid) }
 			hx-trigger="click"
 			hx-swap="beforeend"
 			hx-vals="js:{page: next()}"
@@ -107,9 +107,7 @@ templ ProfileMatchListPartial(name string) {
 }
 
 templ ProfileMatchListError() {
-	<div class="">
-		<div class="text-center">Error fetching matchlist.</div>
-	</div>
+	<div>Error fetching matchlist.</div>
 }
 
 templ ProfileLiveGameSkeleton() {
@@ -119,7 +117,7 @@ templ ProfileLiveGameSkeleton() {
 templ ProfileLiveGameParticipant(m database.ProfileLiveGameParticipant) {
 	<tr>
 		<td>
-			@components.SummonerChampionGrid(m.ChampionIcon, m.Spell1Icon, m.Spell2Icon, m.RunePrimaryIcon, m.RuneSecondaryIcon)
+			@components.SummonerChampionGrid(m.ChampionIcon, m.SummonersIcons, m.RunePrimaryIcon, m.RuneSecondaryIcon)
 		</td>
 		<td>{ m.SummonerName } </td>
 		<td>{ m.Rank }</td>
@@ -165,9 +163,9 @@ templ ProfileLiveGame(m database.ProfileLiveGame) {
 	</div>
 }
 
-templ ProfileLiveGamePartial(name string) {
+templ ProfileLiveGamePartial(puuid string) {
 	<div
-		hx-get={ fmt.Sprintf("/profile/%s/live", name) }
+		hx-get={ fmt.Sprintf("/profile/%s/live", puuid) }
 		hx-trigger="load"
 	>
 		@ProfileLiveGameSkeleton()
@@ -175,8 +173,9 @@ templ ProfileLiveGamePartial(name string) {
 }
 
 templ ProfileLiveGameNotFoundError() {
-	<div>Summoner currently not in game</div>
+	<div>Summoner currently not in game.</div>
 }
 
 templ ProfileLiveGameError() {
+	<div>Error fetching live game.</div>
 }

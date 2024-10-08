@@ -4,19 +4,55 @@ import "github.com/rank1zen/yujin/internal/database"
 import "fmt"
 import "github.com/rank1zen/yujin/internal/ui/partials"
 
-templ Profile(m database.ProfileHeader, name string) {
-	@base(fmt.Sprintf("%s#%s - YUJIN.GG", m.Name, m.Tagline)) {
+templ page(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		@head(title)
+		@body()
+	</html>
+}
+
+templ head(title string) {
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<script src="https://cdn.tailwindcss.com"></script>
+			<script src="https://unpkg.com/htmx.org@2.0.0" integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw" crossorigin="anonymous"></script>
+			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+			<title>{ title }</title>
+		</head>
+}
+
+templ body() {
+	<body>
+		<main>
+			{ children... }
+		</main>
+	</body>
+}
+
+templ NotFound() {
+	<div>
+		Page not found
+	</div>
+}
+
+templ InternalServerError() {
+}
+
+templ Profile(m database.ProfileHeader) {
+	@page(fmt.Sprintf("%s - YUJIN", m.Name)) {
 		<div class="pt-10 mx-auto max-w-4xl">
 			<div class="flex flex-col">
-				<h1 class="block text-4xl font-bold leading-tight text-nowrap">{ m.Name }#{ m.Tagline }</h1>
+				<h1 class="block text-4xl font-bold leading-tight text-nowrap">{ m.Name }</h1>
 				<div class="text-lg font-medium flex">
 					<div>
-						{ m.SoloqRank }
+						{ m.Rank }
 						{ m.WinLoss }
 					</div>
 					<div
 						class="p-2 bg-black text-white"
-						hx-post={ "/profile/" + name + "/update" }
+						hx-post={ "/profile/" + m.Puuid + "/update" }
 						hx-trigger="click"
 						type="button"
 					>Update</div>
@@ -32,33 +68,8 @@ templ Profile(m database.ProfileHeader, name string) {
 	}
 }
 
-templ ProfileNotFound() {}
-
-templ base(title string) {
-	<!DOCTYPE html>
-	<html lang="en">
-		<head>
-			<meta charset="UTF-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<script src="https://cdn.tailwindcss.com"></script>
-			<script src="https://unpkg.com/htmx.org@2.0.0" integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw" crossorigin="anonymous"></script>
-			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-			<title>{ title }</title>
-		</head>
-		<body>
-			<main>
-				{ children... }
-			</main>
-		</body>
-	</html>
-}
-
-templ NotFound() {
-	<div class="">
-		404 Page not found
+templ ProfileDoesNotExist() {
+	<div>
+		Profile Does Not Exist
 	</div>
-}
-
-templ InternalServerError() {
-
 }

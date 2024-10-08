@@ -1,12 +1,12 @@
 package components
 
-templ SummonerChampionGrid(championIcon, summ1Icon, summ2Icon, runePrimaryIcon, runeSecondaryIcon string) {
+templ SummonerChampionGrid(championIcon string, summsIcons [2]string, runePrimaryIcon, runeSecondaryIcon string) {
 	<div class="grid grid-cols-5 grid-rows-2 gap-0.5 grid-flow-col">
 		<div class="col-span-2 row-span-2 overflow-hidden rounded-sm">
 			<img class="scale-[1.135] size-full object-cover" src={ championIcon }/>
 		</div>
-		<img class="rounded-sm" src={ summ1Icon }/>
-		<img class="rounded-sm" src={ summ2Icon }/>
+		<img class="rounded-sm" src={ summsIcons[0] }/>
+		<img class="rounded-sm" src={ summsIcons[1] }/>
 		<div class="grid col-span-2 row-span-2 grid-cols-subgrid grid-rows-subgrid bg-white">
 			<div class="col-start-1 row-start-1 col-span-2 row-span-2">
 				<img src={ runePrimaryIcon } class="size-full"/>
@@ -27,7 +27,7 @@ templ SummonerChampionGridSkeleton() {
 	</div>
 }
 
-templ SummonerItemsGrid(icons []*string) {
+templ SummonerItemsGrid(icons [7]*string) {
 	<div class="grid grid-cols-3 grid-rows-2 gap-0.5">
 		for i := range 6 {
 			if icons[i] == nil {

@@ -121,6 +121,7 @@ func riotLeagueEntryToRow(m *riot.LeagueEntry) map[string]any {
 }
 
 type ProfileHeader struct {
+	Puuid         string
 	Name          string
 	LastUpdated   string
 	Rank          string
@@ -163,8 +164,8 @@ type ProfileMatch struct {
 	ChampionIcon      string
 	RunePrimaryIcon   string
 	RuneSecondaryIcon string
-	SummonersIcons    []string
-	ItemIcons         []*string
+	SummonersIcons    [2]string
+	ItemIcons         [7]*string
 }
 
 type ProfileMatchList []ProfileMatch
@@ -219,15 +220,15 @@ type ProfileLiveGameParticipant struct {
 	ChampionIcon      string
 	RunePrimaryIcon   string
 	RuneSecondaryIcon string
-	SummonersIcons    []string
+	SummonersIcons    [2]string
 }
 
 type ProfileLiveGame struct {
 	GameStartDate    string
-	RedSide          []ProfileLiveGameParticipant
-	BlueSide         []ProfileLiveGameParticipant
-	RedSideBanIcons  []string
-	BlueSideBanIcons []string
+	RedSide          [5]ProfileLiveGameParticipant
+	BlueSide         [5]ProfileLiveGameParticipant
+	RedSideBanIcons  [5]string
+	BlueSideBanIcons [5]string
 }
 
 func (db *DB) ProfileGetLiveGame(ctx context.Context, puuid string) (ProfileLiveGame, error) {
@@ -245,7 +246,7 @@ func (db *DB) ProfileGetLiveGame(ctx context.Context, puuid string) (ProfileLive
 			return ProfileLiveGame{}, err
 		}
 
-		summonersIcons := dbGetSummonersIconUrls(ctx, db.pool, []int{player.Spell1Id, player.Spell2Id})
+		summonersIcons := dbGetSummonersIconUrls(ctx, db.pool, [2]int{player.Spell1Id, player.Spell2Id})
 		championIcon := dbGetChampionIconUrl(ctx, db.pool, player.ChampionId)
 		runePrimaryIcon := dbGetRuneIconUrl(ctx, db.pool, player.Perks.PerkIds[riot.PerkKeystone])
 		runeSecondaryIcon := dbGetRuneTreeIconUrl(ctx, db.pool, player.Perks.PerkStyle)
