@@ -278,19 +278,13 @@ var migrations = []func(tx pgx.Tx) error{
 	},
 	func(tx pgx.Tx) (err error) {
 		sql := `
-		CREATE TABLE static_runes (
-			id int primary key,
-			icon_url text,
-			name text
-		);
-
 		CREATE TABLE static_summoners (
 			id int primary key,
 			icon_url text,
 			name text
 		);
 
-		CREATE FUNCTION get_summoners_icon_urls(ids int[]) RETURNS text[] AS $$
+		CREATE FUNCTION get_summoners_icon_urls(ids int[2]) RETURNS text[] AS $$
 		DECLARE
 			urls text[];
 		BEGIN
@@ -298,26 +292,47 @@ var migrations = []func(tx pgx.Tx) error{
 			FROM static_summoners
 			WHERE id = ANY(ids);
 
-			RETURN urls;
+			RETURN array[urls[1], urls[2]];
 		END;
 		$$ LANGUAGE plpgsql;
 
-		CREATE FUNCTION get_rune_tree_icon_urls(id int) RETURNS text AS $$
+		CREATE TABLE static_runes (
+			id int primary key,
+			icon_url text,
+			name text
+		);
+
+		CREATE FUNCTION get_rune_icon_url(id int) RETURNS text AS $$
+		DECLARE
+			url text;
+		BEGIN
+			SELECT icon_url INTO url
+			FROM static_runes
+			WHERE id = id;
+
+			RETURN url;
+		END;
+		$$ LANGUAGE plpgsql;
+
+		CREATE FUNCTION get_rune_tree_icon_url(id int) RETURNS text AS $$
 		BEGIN
 			CASE id
-			WHEN 8000 THEN https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7201_precision.png
-			WHEN 8100 THEN https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7200_domination.png
-			WHEN 8200 THEN https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7202_sorcery.png
-			WHEN 8300 THEN https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7203_whimsy.png
-			WHEN 8400 THEN https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7204_resolve.png
+			WHEN 8000 THEN
+				RETURN 'https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7201_precision.png';
+			WHEN 8100 THEN
+				RETURN 'https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7200_domination.png';
+			WHEN 8200 THEN
+				RETURN 'https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7202_sorcery.png';
+			WHEN 8300 THEN
+				RETURN 'https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7203_whimsy.png';
+			WHEN 8400 THEN
+				RETURN 'https://raw.communitydragon.org/14.16/plugins/rcp-be-lol-game-data/global/default/v1/perk-images/styles/7204_resolve.png';
 			END CASE;
 		END;
 		$$ LANGUAGE plpgsql;
-
-		CREATE FUNCTION get_rune_icon_urls(ids) RETURNS text AS $$
-		$$ LANGUAGE plpgsql;
 		`
 		_, err = tx.Exec(context.Background(), sql)
+
 		return err
 	},
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rank1zen/yujin/internal/logging"
 	"github.com/rank1zen/yujin/internal/pgxutil"
 	"github.com/rank1zen/yujin/internal/riot"
 	"go.opentelemetry.io/otel/trace"
@@ -80,49 +79,29 @@ func riotDurationToInterval(dur int) time.Duration {
 	return time.Duration(dur) * time.Second
 }
 
-func dbGetItemIconUrls(ctx context.Context, db pgxutil.Conn, ids [7]int) [7]*string {
-	var urls [7]*string
-	err := db.QueryRow(ctx, `SELECT get_item_icon_urls($1)`, ids).Scan(&urls)
-	if err != nil {
-		logging.FromContext(ctx).Sugar().DPanic(err)
-	}
-	return urls
+func dbGetItemIconUrls(ctx context.Context, db pgxutil.Conn, ids [7]int) ([7]*string, error) {
+	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, ids)
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[[7]*string])
 }
 
-func dbGetChampionIconUrl(ctx context.Context, db pgxutil.Conn, id int) string {
-	var url string
-	err := db.QueryRow(ctx, `SELECT get_item_icon_urls($1)`, id).Scan(&url)
-	if err != nil {
-		logging.FromContext(ctx).Sugar().DPanic(err)
-	}
-	return url
+func dbGetChampionIconUrl(ctx context.Context, db pgxutil.Conn, id int) (string, error) {
+	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, id)
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[string])
 }
 
-func dbGetSummonersIconUrls(ctx context.Context, db pgxutil.Conn, ids [2]int) [2]string {
-	var urls [2]string
-	err := db.QueryRow(ctx, `SELECT get_summoners_icon_urls($1)`, ids).Scan(&urls)
-	if err != nil {
-		logging.FromContext(ctx).Sugar().DPanic(err)
-	}
-	return urls
+func dbGetSummonersIconUrls(ctx context.Context, db pgxutil.Conn, ids [2]int) ([2]string, error) {
+	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, ids)
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[[2]string])
 }
 
-func dbGetRuneIconUrl(ctx context.Context, db pgxutil.Conn, id int) string {
-	var url string
-	err := db.QueryRow(ctx, `SELECT get_rune_icon_urls($1)`, id).Scan(&url)
-	if err != nil {
-		logging.FromContext(ctx).Sugar().DPanic(err)
-	}
-	return url
+func dbGetRuneIconUrl(ctx context.Context, db pgxutil.Conn, id int) (string, error) {
+	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, id)
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[string])
 }
 
-func dbGetRuneTreeIconUrl(ctx context.Context, db pgxutil.Conn, id int) string {
-	var url string
-	err := db.QueryRow(ctx, `SELECT get_rune_tree_icon_urls($1)`, id).Scan(&url)
-	if err != nil {
-		logging.FromContext(ctx).Sugar().DPanic(err)
-	}
-	return url
+func dbGetRuneTreeIconUrl(ctx context.Context, db pgxutil.Conn, id int) (string, error) {
+	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, id)
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[string])
 }
 
 type Account struct {

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rank1zen/yujin/internal/logging"
 	"github.com/rank1zen/yujin/internal/pgxutil"
 	"github.com/rank1zen/yujin/internal/riot"
 )
@@ -45,7 +44,6 @@ func (db *DB) ProfileUpdate(ctx context.Context, puuid string) error {
 	}
 	defer tx.Rollback(ctx)
 
-	// remember to update profile table
 	account, err := db.riot.AccountGetByPuuid(ctx, puuid)
 	if err != nil {
 		return err
@@ -132,19 +130,20 @@ type ProfileHeader struct {
 func (db *DB) ProfileGetHeader(ctx context.Context, puuid string) (ProfileHeader, error) {
 	rows, _ := db.pool.Query(ctx, `
 	SELECT
-		FORMAT('%s#%s', name, tagline) AS name,
-		TO_CHAR(last_updated, 'YYYY MM-DD HH24:MI') AS last_updated,
+		puuid,
+		format('%s#%s', name, tagline) as name,
+		to_char(last_updated, 'YYYY MM-DD HH24:MI') AS last_updated,
 		format_rank(tier, division, league_points) AS rank,
 		format_win_loss(wins, losses) AS win_loss,
 		summoner_level
 	FROM profile_headers
 	WHERE puuid = $1;
 	`, puuid)
-
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[ProfileHeader])
 }
 
 type ProfileMatch struct {
+	MatchID           riot.MatchID
 	KillDeathAssist   string
 	KillParticipation string
 	CreepScore        string
@@ -154,12 +153,10 @@ type ProfileMatch struct {
 	GoldEarned        string
 	GoldPercentage    string
 	VisionScore       string
-
-	MatchId      string
-	GameDate     string
-	GameDuration string
-	PlayerWin    bool
-	LpDelta      string
+	GameDate          string
+	GameDuration      string
+	PlayerWin         bool
+	LpDelta           string
 
 	ChampionIcon      string
 	RunePrimaryIcon   string
@@ -181,26 +178,26 @@ func (db *DB) ProfileGetMatchList(ctx context.Context, puuid string, page int, e
 
 	rows, _ := db.pool.Query(ctx, `
 	SELECT
-		FORMAT('%s / %s / %s', kills, deaths, assists) as kill_death_assist,
-		creep_score,
-		TO_CHAR(total_damage_dealt_to_champions, 'FM999,999') AS damage_done,
-		TO_CHAR(gold_earned, 'FM999,999') AS gold_earned,
-		vision_score,
-
-		format_kill_participation() AS kill_participation,
-		format_cs_per10(creep_score, game_duration) AS creep_score_per10,
-		format_damage_relative() AS damage_percentage,
-		'34%' AS gold_percentage,
-
 		match_id,
-		TO_CHAR(game_date, 'MM-DD HH24:MI') AS game_date,
-		EXTRACT(MINUTE FROM game_duration) || ':' || EXTRACT(SECOND FROM game_duration) AS game_duration,
+		format('%s / %s / %s', kills, deaths, assists) AS kill_death_assist,
+		format_kill_participation() AS kill_participation,
+		creep_score,
+		format_cs_per10(creep_score, game_duration) AS creep_score_per10,
+		to_char(total_damage_dealt_to_champions, 'FM999,999') AS damage_done,
+		format_damage_relative() AS damage_percentage,
+		to_char(gold_earned, 'FM999,999') AS gold_earned,
+		'34%' AS gold_percentage,
+		vision_score,
+		to_char(game_date, 'MM-DD HH24:MI') AS game_date,
+		extract(minute from game_duration) || ':' || extract(second from game_duration) AS game_duration,
 		win AS player_win,
 		'??' AS lp_delta,
 
 		get_champion_icon_url(champion_id) AS champion_icon,
-		get_item_icon_urls(items) AS item_icons,
-		get_summoners_icon_urls(summoners) AS summoners_icons
+		get_rune_icon_url(rune_primary_keystone) AS rune_primary_icon,
+		get_rune_tree_icon_url(rune_secondary_path) AS rune_secondary_icon,
+		get_summoners_icon_urls(summoners) AS summoners_icons,
+		get_item_icon_urls(items) AS item_icons
 	FROM profile_matches
 	WHERE puuid = $1
 	ORDER BY game_date DESC
@@ -211,21 +208,20 @@ func (db *DB) ProfileGetMatchList(ctx context.Context, puuid string, page int, e
 }
 
 type ProfileLiveGameParticipant struct {
-	SummonerId   string
-	SummonerName string
-	Rank         string
-	WinLoss      string
-	WinLossRatio string
-
-	ChampionIcon      string
-	RunePrimaryIcon   string
-	RuneSecondaryIcon string
-	SummonersIcons    [2]string
+	SummonerID         string
+	TeamID             riot.TeamID
+	Name               string
+	Rank               string
+	WinLoss            string
+	ChampionBannedIcon *string
+	ChampionIcon       string
+	SummonersIcons     [2]string
+	RunePrimaryIcon    string
+	RuneSecondaryIcon  string
 }
 
 type ProfileLiveGameTeam struct {
-	Participants     [5]ProfileLiveGameParticipant
-	ChampionBanIcons [5]string
+	Participants [5]ProfileLiveGameParticipant
 }
 
 type ProfileLiveGame struct {
@@ -235,56 +231,67 @@ type ProfileLiveGame struct {
 }
 
 func (db *DB) ProfileGetLiveGame(ctx context.Context, puuid string) (ProfileLiveGame, error) {
-	game, err := db.riot.GetCurrentGameInfoByPuuid(ctx, puuid)
+	m, err := db.riot.GetCurrentGameInfoByPuuid(ctx, puuid)
 	if err != nil {
 		return ProfileLiveGame{}, err
 	}
 
-	var m ProfileLiveGame
-	m.GameStartDate = riotUnixToDate(game.GameStartTime).String()
+	// HACK: we want to do this through sql instead of go
+	var livegame ProfileLiveGame
+	livegame.GameStartDate = riotUnixToDate(m.GameStartTime).String()
 
-	for _, player := range game.Participants {
-		name, err := riotGetName(ctx, db.riot, player.Puuid)
+	for i, player := range m.Participants {
+		p, err := riotSpectatorParticipant(ctx, db.pool, db.riot, player)
 		if err != nil {
 			return ProfileLiveGame{}, err
 		}
-
-		summonersIcons := dbGetSummonersIconUrls(ctx, db.pool, [2]int{player.Spell1Id, player.Spell2Id})
-		championIcon := dbGetChampionIconUrl(ctx, db.pool, player.ChampionId)
-		runePrimaryIcon := dbGetRuneIconUrl(ctx, db.pool, player.Perks.PerkIds[riot.PerkKeystone])
-		runeSecondaryIcon := dbGetRuneTreeIconUrl(ctx, db.pool, player.Perks.PerkStyle)
-
-		p := ProfileLiveGameParticipant{
-			SummonerName:      name,
-			SummonerId:        player.SummonerId,
-			ChampionIcon:      championIcon,
-			RunePrimaryIcon:   runePrimaryIcon,
-			RuneSecondaryIcon: runeSecondaryIcon,
-			SummonersIcons:    summonersIcons,
-		}
-
-		switch player.TeamId {
-		case riot.TeamBlueSideID:
-			m.BlueSide = append(m.BlueSide, p)
-		case riot.TeamRedSideID:
-			m.RedSide = append(m.RedSide, p)
-		default:
-			logging.FromContext(ctx).Sugar().DPanicf("invalid team id: %d", player.TeamId)
+		// ULTRA HACK
+		if p.TeamID == 100 {
+			livegame.RedTeam.Participants[i%5] = p
+		} else {
+			livegame.BlueTeam.Participants[i%5] = p
 		}
 	}
 
-	for _, ban := range game.BannedChampions {
-		championIcon := dbGetChampionIconUrl(ctx, db.pool, ban.ChampionId)
+	return livegame, nil
+}
 
-		switch ban.TeamId {
-		case riot.TeamBlueSideID:
-			m.BlueSideBanIcons = append(m.BlueSideBanIcons, championIcon)
-		case riot.TeamRedSideID:
-			m.RedSideBanIcons = append(m.RedSideBanIcons, championIcon)
-		default:
-			logging.FromContext(ctx).Sugar().DPanicf("invalid team id: %d", ban.TeamId)
-		}
+func riotSpectatorParticipant(ctx context.Context, db pgxutil.Conn, r *riot.Client, m riot.SpectatorCurrentGameParticipant) (ProfileLiveGameParticipant, error) {
+	name, err := riotGetName(ctx, r, m.Puuid)
+	if err != nil {
+		return ProfileLiveGameParticipant{}, err
 	}
 
-	return m, nil
+	summonersIcons, err := dbGetSummonersIconUrls(ctx, db, [2]int{m.Spell1Id, m.Spell2Id})
+	if err != nil {
+		return ProfileLiveGameParticipant{}, err
+	}
+
+	championIcon, err := dbGetChampionIconUrl(ctx, db, m.ChampionId)
+	if err != nil {
+		return ProfileLiveGameParticipant{}, err
+	}
+
+	runePrimaryIcon, err := dbGetRuneIconUrl(ctx, db, m.Perks.PerkIds[riot.PerkKeystone])
+	if err != nil {
+		return ProfileLiveGameParticipant{}, err
+	}
+
+	runeSecondaryIcon, err := dbGetRuneTreeIconUrl(ctx, db, m.Perks.PerkStyle)
+	if err != nil {
+		return ProfileLiveGameParticipant{}, err
+	}
+
+	return ProfileLiveGameParticipant{
+		SummonerID:         m.SummonerId,
+		TeamID:             riot.TeamID(m.TeamId),
+		Name:               name,
+		Rank:               "",
+		WinLoss:            "",
+		ChampionBannedIcon: nil,
+		ChampionIcon:       championIcon,
+		RunePrimaryIcon:    runePrimaryIcon,
+		RuneSecondaryIcon:  runeSecondaryIcon,
+		SummonersIcons:     summonersIcons,
+	}, nil
 }

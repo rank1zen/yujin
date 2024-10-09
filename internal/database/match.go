@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/rank1zen/yujin/internal/logging"
@@ -12,97 +11,71 @@ import (
 )
 
 type MatchParticipant struct {
-	Name       string
-	Rank       string
-	Kills      string
-	Deaths     string
-	Assists    string
-	CreepScore string
-	CsPer10    string
-	Damage     string
+	Name            string
+	Rank            string
+	KillDeathAssist string
+	CreepScore      string
+	CsPer10         string
+	Damage          string
 
 	ChampionIcon      string
 	RunePrimaryIcon   string
 	RuneSecondaryIcon string
-	Spell1Icon        string
-	Spell2Icon        string
-	ItemIcons         []*string
+	SummonersIcons    [2]string
+	ItemIcons         [7]*string
+}
+
+type MatchTeam struct {
+	TeamID       riot.TeamID
+	Participants [5]MatchParticipant
 }
 
 type Match struct {
-	MatchId      string
+	MatchID      riot.MatchID
 	GamePatch    string
 	GameDuration string
 	GameDate     string
-	RedSide      []MatchParticipant
-	BlueSide     []MatchParticipant
+	RedTeam      MatchTeam
+	BlueTeam     MatchTeam
 }
 
-func (db *DB) MatchGet(ctx context.Context, name, matchID string) (Match, error) {
+func (db *DB) MatchGet(ctx context.Context, matchID string) (Match, error) {
 	var m Match
 
-	batch := &pgx.Batch{}
+	db.pool.Query(ctx, `
+	DECLARE
+		match_id      riot_match_id;
+		game_patch    text;
+		game_duration text;
+		game_date     text;
+		blue_team     pp;
+		red_team      pp;
+	BEGIN
+		SELECT match_id, game_patch, -, -
+		INTO match_id, game_patch, game_duration, game_date
+		FROM match_info_records
+		WHERE match_id = $1;
 
-	batch.Queue(`
-	SELECT
-		match_id,
-		game_patch,
-		EXTRACT(MINUTE FROM game_duration) || 'm ' || EXTRACT(SECOND FROM game_duration) || 's' AS game_duration,
-		TO_CHAR(game_date, 'MM-DD HH24:MI') AS game_date
-	FROM
-		match_info_records
-	WHERE
-		match_id = $1;
-	`, matchID).QueryRow(func(row pgx.Row) error {
-		err := row.Scan(&m.MatchId, &m.GamePatch, &m.GameDuration, &m.GameDate)
-		if err != nil {
-			return fmt.Errorf("getting match info: %w", err)
-		}
-		return nil
-	})
-
-	getPostGame := func(teamID int, dst *[]MatchParticipant) {
-		batch.Queue(`
 		SELECT
 			participant_name AS name,
 			'???' AS rank,
-			kills, deaths, assists,
-			creep_score, TO_CHAR(60 * creep_score / EXTRACT(epoch FROM game_duration), 'FM99999.0') AS cs_per_10,
+			FORMAT('%s / %s / %s', kills, deaths, assists) as kill_death_assist,
+			creep_score,
+			TO_CHAR(60 * creep_score / EXTRACT(epoch FROM game_duration), 'FM99999.0') AS cs_per_10,
 			total_damage_dealt_to_champions AS damage,
-			FORMAT('https://cdn.communitydragon.org/14.16.1/champion/%s/square', champion_id) AS champion_icon_url,
+			get_champion_icon_url(champion_id) AS champion_icon_url,
 			array[item0_id, item1_id, item2_id, item3_id, item4_id, item5_id] as items,
 			array[spell1_id, spell2_id] as spells,
 			rune_primary_keystone AS rune_primary,
 			rune_secondary_path AS rune_secondary
-		FROM
-			profile_matches
-		WHERE 1=1
-			AND match_id = $1
-			AND team_id = $2
-		ORDER BY
-			participant_id;
-		`, matchID, teamID).Query(func(rows pgx.Rows) error {
-			collectedRows, err := pgx.CollectRows(rows, pgx.RowToStructByName[MatchParticipant])
-			if err != nil {
-				return fmt.Errorf("getting team: %w", err)
-			}
+		INTO 
+		FROM profile_matches
+		WHERE match_id = $1 AND team_id = $2;
+		ORDER BY participant_id;
 
-			if len(collectedRows) != 5 {
-				logging.FromContext(ctx).DPanic("team does not have 5")
-			}
-
-			*dst = collectedRows
-			return nil
-		})
-	}
-
-	getPostGame(100, &m.BlueSide)
-	getPostGame(200, &m.RedSide)
-
-	err := db.pool.SendBatch(ctx, batch).Close()
-	if err != nil {
-		return Match{}, err
-	}
+		RETURN match_id, game_patch, game_date, blue_team, red_team;
+	END;
+	`, matchID)
 
 	return m, nil
 }
