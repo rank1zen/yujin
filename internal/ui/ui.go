@@ -2,9 +2,9 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/a-h/templ"
@@ -15,9 +15,9 @@ import (
 	"github.com/rank1zen/yujin/internal/http/request"
 	"github.com/rank1zen/yujin/internal/http/response/html"
 	"github.com/rank1zen/yujin/internal/logging"
+	"github.com/rank1zen/yujin/internal/riot"
 	"github.com/rank1zen/yujin/internal/ui/pages"
 	"github.com/rank1zen/yujin/internal/ui/partials"
-	"github.com/rank1zen/yujin/internal/ui/static"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -89,44 +89,28 @@ func Routes(db *database.DB) *chi.Mux {
 
 	for _, handler := range []pathHandler{
 		{
-			"/static/*",
-			func(w http.ResponseWriter, r *http.Request) {
-				rctx := chi.RouteContext(r.Context())
-				pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
-				fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(static.StylesheetFiles)))
-				fs.ServeHTTP(w, r)
-			},
-		},
-		{
-			"/",
-			func(w http.ResponseWriter, r *http.Request) {
-				html.OK(w, r, pages.About())
-			},
-		},
-		{
-			"/profile/{name}",
+			"/profile/{puuid}",
 			func(w http.ResponseWriter, r *http.Request) {
 				ctx := r.Context()
-				name := chi.URLParam(r, "name")
-				profile, err := db.GetProfileSummary(ctx, name)
+				puuid := chi.URLParam(r, "puuid")
+				exists, err := db.ProfileExists(ctx, puuid)
 				if err != nil {
-					html.ServerError(w, r, pages.ProfileNotFound(r), err)
+					html.ServerError(w, r, pages.ProfileNotFound(puuid), err)
+					// internal server err html
+					return
 				}
 
-				html.OK(w, r, pages.ProfileMatchList(r, profile))
-			},
-		},
-		{
-			"/profile/{name}/other",
-			func(w http.ResponseWriter, r *http.Request) {
-				ctx := r.Context()
-				name := chi.URLParam(r, "name")
-				profile, err := db.GetProfileSummary(ctx, name)
-				if err != nil {
-					html.ServerError(w, r, pages.ProfileNotFound(r), err)
-				}
+				if exists {
+					profile, err := db.ProfileGetHeader(ctx, puuid)
+					if err != nil {
+						html.ServerError(w, r, pages.ProfileNotFound(puuid), err)
+						return
+					}
 
-				html.OK(w, r, pages.ProfileOther(r, profile))
+					html.OK(w, r, pages.Profile(profile, puuid))
+				} else {
+					html.BadRequest(w, r, pages.ProfileNotFound(puuid), err)
+				}
 			},
 		},
 		{
@@ -135,13 +119,29 @@ func Routes(db *database.DB) *chi.Mux {
 				ctx := r.Context()
 				name := chi.URLParam(r, "name")
 				page := request.QueryIntParam(r, "page", 0)
-				matches, err := db.GetProfileMatchList(ctx, name, page, true)
-				if err != nil {
+				m, err := db.ProfileGetMatchList(ctx, name, page, true)
+				switch err {
+				case nil:
+					html.OK(w, r, partials.ProfileMatchList(m))
+				default:
 					html.ServerError(w, r, partials.ProfileMatchListError(), err)
-					return
 				}
-
-				html.OK(w, r, partials.ProfileMatchList(r, matches))
+			},
+		},
+		{
+			"/profile/{name}/live",
+			func(w http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
+				name := chi.URLParam(r, "name")
+				m, err := db.ProfileGetLiveGame(ctx, name)
+				switch {
+				case err == nil:
+					html.OK(w, r, partials.ProfileLiveGame(m))
+				case errors.As(err, 1):
+					html.OK(w, r, partials.ProfileLiveGameNotFoundError())
+				default:
+					html.ServerError(w, r, partials.ProfileLiveGameError(), err)
+				}
 			},
 		},
 	} {
@@ -154,9 +154,10 @@ func Routes(db *database.DB) *chi.Mux {
 			func(w http.ResponseWriter, r *http.Request) {
 				ctx := r.Context()
 				name := chi.URLParam(r, "name")
-				err := db.UpdateProfile(ctx, name)
+				err := db.ProfileUpdate(ctx, name)
 				if err != nil {
 					html.ServerError(w, r, nil, fmt.Errorf("updating summary: %w", err))
+					return
 				}
 
 				w.Header().Set("HX-Refresh", "true")
@@ -168,4 +169,16 @@ func Routes(db *database.DB) *chi.Mux {
 	}
 
 	return router
+}
+
+func GenMatchListQuery(puuid riot.PUUID, page int) string {
+	return fmt.Sprintf("/profile/%s/matchlist?page=%d", puuid, page)
+}
+
+func GenLiveGameQuery(puuid riot.PUUID) string {
+	return fmt.Sprintf("/profile/%s/livegame", puuid)
+}
+
+func GenChampionStatsQuery(puuid riot.PUUID) string {
+	return fmt.Sprintf("/profile/%s/matchlist", puuid)
 }

@@ -39,23 +39,11 @@ func Get() *zap.Logger {
 
 		logLevel := zap.NewAtomicLevelAt(level)
 
-		// prodCfg := zap.NewProductionEncoderConfig()
-
 		devCfg := zap.NewDevelopmentEncoderConfig()
 		devCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		consoleEncoder := zapcore.NewConsoleEncoder(devCfg)
-		// fileEncoder := zapcore.NewJSONEncoder(prodCfg)
 
-		// var gitRevision string
 		buildInfo, _ := debug.ReadBuildInfo()
-		// if ok {
-		// 	for _, v := range buildInfo.Settings {
-		// 		if v.Key == "vcs.revision" {
-		// 			gitRevision = v.Value
-		// 			return
-		// 		}
-		// 	}
-		// }
 
 		core := zapcore.NewTee(
 			zapcore.NewCore(consoleEncoder, stdout, logLevel).
@@ -79,9 +67,9 @@ func FromContext(ctx context.Context) *zap.Logger {
 		return l
 	} else if l := logger; l != nil {
 		return l
-	} else {
-		return zap.NewNop()
 	}
+
+	return Get()
 }
 
 func WithContext(ctx context.Context, lg *zap.Logger) context.Context {

@@ -12,7 +12,7 @@ func TestGetAccountByRiotId(t *testing.T) {
 
 	ctx := context.Background()
 
-	m, err := client.GetAccountByRiotId(ctx, "orrange", "na1")
+	m, err := client.AccountGetByRiotId(ctx, "orrange", "na1")
 	if assert.NoError(t, err) {
 		assert.Equal(t, "orrange", m.GameName)
 		assert.Equal(t, "NA1", m.TagLine)
