@@ -15,6 +15,7 @@ import (
 	"github.com/rank1zen/yujin/internal/http/request"
 	"github.com/rank1zen/yujin/internal/http/response/html"
 	"github.com/rank1zen/yujin/internal/logging"
+	"github.com/rank1zen/yujin/internal/riot"
 	"github.com/rank1zen/yujin/internal/ui/pages"
 	"github.com/rank1zen/yujin/internal/ui/partials"
 	"go.uber.org/zap"
@@ -168,4 +169,16 @@ func Routes(db *database.DB) *chi.Mux {
 	}
 
 	return router
+}
+
+func GenMatchListQuery(puuid riot.PUUID, page int) string {
+	return fmt.Sprintf("/profile/%s/matchlist?page=%d", puuid, page)
+}
+
+func GenLiveGameQuery(puuid riot.PUUID) string {
+	return fmt.Sprintf("/profile/%s/livegame", puuid)
+}
+
+func GenChampionStatsQuery(puuid riot.PUUID) string {
+	return fmt.Sprintf("/profile/%s/matchlist", puuid)
 }

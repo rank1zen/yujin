@@ -79,34 +79,9 @@ func riotDurationToInterval(dur int) time.Duration {
 	return time.Duration(dur) * time.Second
 }
 
-func dbGetItemIconUrls(ctx context.Context, db pgxutil.Conn, ids [7]int) ([7]*string, error) {
-	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, ids)
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[[7]*string])
-}
-
-func dbGetChampionIconUrl(ctx context.Context, db pgxutil.Conn, id int) (string, error) {
-	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, id)
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[string])
-}
-
-func dbGetSummonersIconUrls(ctx context.Context, db pgxutil.Conn, ids [2]int) ([2]string, error) {
-	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, ids)
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[[2]string])
-}
-
-func dbGetRuneIconUrl(ctx context.Context, db pgxutil.Conn, id int) (string, error) {
-	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, id)
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[string])
-}
-
-func dbGetRuneTreeIconUrl(ctx context.Context, db pgxutil.Conn, id int) (string, error) {
-	rows, _ := db.Query(ctx, `SELECT get_item_icon_urls($1)`, id)
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[string])
-}
-
 type Account struct {
-	Puuid      string
-	SummonerId string
+	Puuid      riot.PUUID
+	SummonerId riot.SummonerID
 	Name       string
 	TagLine    string
 }

@@ -54,3 +54,16 @@ func TestProfileGetMatchList(t *testing.T) {
 		log.Println(matches[4])
 	}
 }
+
+func TestProfileGetChampionStatList(t *testing.T) {
+	ctx := context.Background()
+
+	db := setupDB(t)
+
+	err := matchInsert(ctx, db.pool, testdata.GetMatch("NA1_5011055088"))
+	require.NoError(t, err)
+
+	stats, err := db.ProfileGetChampionStatList(ctx, "0bEBr8VSevIGuIyJRLw12BKo3Li4mxvHpy_7l94W6p5SRrpv00U3cWAx7hC4hqf_efY8J4omElP9-Q", "ALL")
+	require.NoError(t, err)
+	log.Print(stats)
+}

@@ -65,7 +65,10 @@ var migrations = []func(tx pgx.Tx) error{
 			division      varchar(8),
 			league_points int,
 			wins          int,
-			losses        int
+			losses        int,
+			recent_match  riot_match_id, -- most recent match when record was taken
+			FOREIGN KEY(recent_match)
+				REFERENCES matches(id)
 		);
 
 		CREATE VIEW summoner_records_latest AS
@@ -230,26 +233,6 @@ var migrations = []func(tx pgx.Tx) error{
 	},
 	func(tx pgx.Tx) (err error) {
 		sql := `
-		CREATE FUNCTION format_cs_per10(cs int, game_duration interval) RETURNS char(4) AS $$
-		BEGIN
-			RETURN TO_CHAR(60 * cs / EXTRACT(epoch FROM game_duration), 'FM99.0');
-		END;
-		$$ LANGUAGE plpgsql;
-
-		CREATE FUNCTION format_kill_participation() RETURNS char(3) AS $$
-		BEGIN
-			-- TODO:
-			RETURN '20%';
-		END;
-		$$ LANGUAGE plpgsql;
-
-		CREATE FUNCTION format_damage_relative() RETURNS char(3) AS $$
-		BEGIN
-			-- TODO:
-			RETURN '80%'; 
-		END;
-		$$ LANGUAGE plpgsql;
-
 		CREATE FUNCTION get_champion_icon_url(id int) RETURNS varchar(128) AS $$
 		BEGIN
 			RETURN FORMAT('https://cdn.communitydragon.org/14.16.1/champion/%s/square', id);
@@ -285,14 +268,9 @@ var migrations = []func(tx pgx.Tx) error{
 		);
 
 		CREATE FUNCTION get_summoners_icon_urls(ids int[2]) RETURNS text[] AS $$
-		DECLARE
-			urls text[];
+		-- TODO: implement
 		BEGIN
-			SELECT array_agg(icon_url) INTO urls
-			FROM static_summoners
-			WHERE id = ANY(ids);
-
-			RETURN array[urls[1], urls[2]];
+			RETURN array['', ''];
 		END;
 		$$ LANGUAGE plpgsql;
 
@@ -303,14 +281,11 @@ var migrations = []func(tx pgx.Tx) error{
 		);
 
 		CREATE FUNCTION get_rune_icon_url(id int) RETURNS text AS $$
+		-- TODO: implement
 		DECLARE
 			url text;
 		BEGIN
-			SELECT icon_url INTO url
-			FROM static_runes
-			WHERE id = id;
-
-			RETURN url;
+			RETURN array['', ''];
 		END;
 		$$ LANGUAGE plpgsql;
 

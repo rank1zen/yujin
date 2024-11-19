@@ -3,6 +3,28 @@ package pages
 import "github.com/rank1zen/yujin/internal/database"
 import "fmt"
 import "github.com/rank1zen/yujin/internal/ui/partials"
+import "github.com/rank1zen/yujin/internal/ui/components"
+
+templ head(title string) {
+	<head>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script src="https://unpkg.com/htmx.org@2.0.0" integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw" crossorigin="anonymous"></script>
+		<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+		<title>{ title }</title>
+	</head>
+}
+
+templ body() {
+	<body>
+		<main>
+			<div class="pt-10 mx-auto max-w-4xl">
+				{ children... }
+			</div>
+		</main>
+	</body>
+}
 
 templ page(title string) {
 	<!DOCTYPE html>
@@ -12,64 +34,49 @@ templ page(title string) {
 	</html>
 }
 
-templ head(title string) {
-		<head>
-			<meta charset="utf-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<script src="https://cdn.tailwindcss.com"></script>
-			<script src="https://unpkg.com/htmx.org@2.0.0" integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw" crossorigin="anonymous"></script>
-			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-			<title>{ title }</title>
-		</head>
-}
-
-templ body() {
-	<body>
-		<main>
-			{ children... }
-		</main>
-	</body>
-}
-
 templ NotFound() {
-	<div>
-		Page not found
-	</div>
+	@page("NotFound") {
+		<div>NotFound</div>
+	}
 }
 
 templ InternalServerError() {
+	@page("InternalServerError") {
+		<div>InternalServerError</div>
+	}
 }
 
 templ Profile(m database.ProfileHeader) {
 	@page(fmt.Sprintf("%s - YUJIN", m.Name)) {
-		<div class="pt-10 mx-auto max-w-4xl">
-			<div class="flex flex-col">
-				<h1 class="block text-4xl font-bold leading-tight text-nowrap">{ m.Name }</h1>
-				<div class="text-lg font-medium flex">
-					<div>
-						{ m.Rank }
-						{ m.WinLoss }
-					</div>
-					<div
-						class="p-2 bg-black text-white"
-						hx-post={ "/profile/" + m.Puuid + "/update" }
-						hx-trigger="click"
-						type="button"
-					>Update</div>
-				</div>
-				<h2 class="font-bold text-xl mt-8">Recent Games</h2>
-				<div class="max-h-96 overflow-auto mt-4">
-					@partials.ProfileMatchListPartial(name)
-				</div>
-				<h2 class="font-bold text-xl mt-8">Ranked Stats</h2>
-				<h2 class="font-bold text-xl mt-8">Live Game</h2>
-			</div>
+		<div class="flex flex-col">
+			@components.Title(m.Name, m.Rank, m.WinLoss)
+			<div
+				class="p-2 bg-black text-white"
+				hx-post={ "/profile/" + m.Puuid + "/update" }
+				hx-trigger="click"
+				type="button"
+			>Update</div>
+			@components.Section("Live Game")
+			@partials.ProfileLiveGamePartial(m.Puuid)
+			@components.Section("Recent Games")
+			@partials.ProfileMatchListPartial(m.Puuid)
+			@components.Section("Champion Stats")
+			@partials.ProfileChampionStatListPartial(m.Puuid)
+			@components.Section("Rank Hisotry")
+			@partials.ProfileRankHistoryPartial(m.Puuid)
 		</div>
 	}
 }
 
 templ ProfileDoesNotExist() {
-	<div>
-		Profile Does Not Exist
-	</div>
+	@page("InternalServerError") {
+		<div>ProfileDoesNotExist</div>
+	}
+}
+
+templ Match(m database.Match) {
+	@page(m.MatchID.String()) {
+		@components.Title(m.MatchID.String(), m.GameDate, m.GameDuration, m.GamePatch)
+		@components.Section("Participants")
+	}
 }
