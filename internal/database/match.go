@@ -68,7 +68,7 @@ func (db *DB) MatchGet(ctx context.Context, matchID string) (Match, error) {
 			array[spell1_id, spell2_id] as spells,
 			rune_primary_keystone AS rune_primary,
 			rune_secondary_path AS rune_secondary
-		INTO 
+		INTO
 		FROM profile_matches
 		WHERE match_id = $1 AND team_id = $2;
 		ORDER BY participant_id;
@@ -80,7 +80,7 @@ func (db *DB) MatchGet(ctx context.Context, matchID string) (Match, error) {
 	return m, nil
 }
 
-func ensureMatchList(ctx context.Context, db pgxutil.Conn, r *riot.Client, puuid string, start, count int) error {
+func ensureMatchList(ctx context.Context, db pgxutil.Conn, r *riot.Client, puuid riot.PUUID, start, count int) error {
 	ids, err := r.GetMatchIdsByPuuid(ctx, puuid, start, count)
 	if err != nil {
 		return fmt.Errorf("fetching riot: %w", err)
@@ -150,20 +150,21 @@ func riotMatchToRows(m *riot.Match) riotMatchRows {
 			"champion_id":     p.ChampionID,
 			"champion_name":   p.ChampionName,
 
-			"items":     []int{p.Item0, p.Item1, p.Item3, p.Item3, p.Item4, p.Item5, p.Item6},
-			"summoners": []int{p.Summoner1ID, p.Summoner2ID},
-
-			"rune_primary_path":     p.Perks.Styles[0].Style,
-			"rune_primary_keystone": p.Perks.Styles[0].Selections[0].Perk,
-			"rune_primary_slot1":    p.Perks.Styles[0].Selections[1].Perk,
-			"rune_primary_slot2":    p.Perks.Styles[0].Selections[2].Perk,
-			"rune_primary_slot3":    p.Perks.Styles[0].Selections[3].Perk,
-			"rune_secondary_path":   p.Perks.Styles[1].Style,
-			"rune_secondary_slot1":  p.Perks.Styles[1].Selections[0].Perk,
-			"rune_secondary_slot2":  p.Perks.Styles[1].Selections[1].Perk,
-			"rune_shard_slot1":      p.Perks.StatPerks.Offense,
-			"rune_shard_slot2":      p.Perks.StatPerks.Flex,
-			"rune_shard_slot3":      p.Perks.StatPerks.Defense,
+			"items":     [7]int{p.Item0, p.Item1, p.Item3, p.Item3, p.Item4, p.Item5, p.Item6},
+			"summoners": [2]int{p.Summoner1ID, p.Summoner2ID},
+			"runes": [11]int{
+				p.Perks.Styles[0].Style,
+				p.Perks.Styles[0].Selections[0].Perk,
+				p.Perks.Styles[0].Selections[1].Perk,
+				p.Perks.Styles[0].Selections[2].Perk,
+				p.Perks.Styles[0].Selections[3].Perk,
+				p.Perks.Styles[1].Style,
+				p.Perks.Styles[1].Selections[0].Perk,
+				p.Perks.Styles[1].Selections[1].Perk,
+				p.Perks.StatPerks.Offense,
+				p.Perks.StatPerks.Flex,
+				p.Perks.StatPerks.Defense,
+			},
 
 			"physical_damage_dealt":              p.PhysicalDamageDealt,
 			"physical_damage_dealt_to_champions": p.PhysicalDamageDealtToChampions,
