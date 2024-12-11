@@ -26,32 +26,37 @@ templ ProfileMatchListSkeleton() {
 }
 
 templ ProfileMatchList(m database.ProfileMatchList) {
-	if m.Count == 0 {
+	for i, n := range m.List {
+		<tr
+			if m.HasMore && i == 0 {
+				hx-get={ genMatchListQuery(m.Puuid, m.Page+1) }
+				hx-trigger="intersect once"
+			}
+		>
+			@components.ChampionGrid(n.Champion, n.Summoners, n.Runes)
+			@components.E(components.FmtKDA(n.KdaKills, n.KdaDeaths, n.KdaAssists),
+				components.Fmt(n.KdaParticipation))
+			@components.E(components.FmtInt(n.CsRaw),
+				components.Fmt(n.CsPer10))
+			@components.E(components.FmtInt(n.DmgRaw),
+				components.Fmt(n.DmgPercentageTeam))
+			@components.E(components.FmtInt(n.GoldRaw),
+				components.Fmt(n.GoldPercentageTeam))
+			@components.E(components.FmtInt(n.VisRaw))
+			@components.ItemsGrid(n.Items)
+			@components.E(components.Fmt(n.GameDate.Day))
+			,
+			components.Fmt(n.GameDate))
+		</tr>
+	}
+	if !m.HasMore {
 		@components.TLast()
-	} else {
-		for i, n := range m.List {
-			<tr
-				if m.HasMore && i == 0 {
-					hx-get={ genMatchListQuery(m.Puuid, m.Page+1) }
-					hx-trigger="intersect once"
-				}
-			>
-				@components.ChampionGrid(n.ChampionIcon, n.SummonersIcons, n.RunePrimaryIcon, n.RuneSecondaryIcon)
-				@components.E(n.KillDeathAssist)
-				@components.E(n.DamageDone, n.DamagePercentage)
-				@components.E(n.GoldEarned, n.GoldPercentage)
-				@components.E(n.VisionScore)
-				@components.ItemsGrid(n.ItemIcons)
-				@components.E(n.GameDuration)
-				@components.E(n.GameDate)
-			</tr>
-		}
 	}
 }
 
 templ ProfileMatchListPartial(puuid riot.PUUID) {
 	<table class="text-left w-full">
-		@components.THead("Champion", "KDA", "CS", "Damage", "Gold", "Vision", "Items", "End", "Date")
+		@components.THead("Champion", "KDA", "CS", "Damage", "Gold", "Vision", "Items", "Delta")
 		<tbody
 			hx-get={ genMatchListQuery(puuid, 0) }
 			hx-trigger="revealed once"
@@ -66,46 +71,33 @@ templ ProfileMatchListError() {
 	<div>Error fetching matchlist.</div>
 }
 
-templ ProfileLiveGameTeam(m database.ProfileLiveGameTeam) {
-	@components.H3(m.Team, m.AverageRank)
-	<table class="w-full text-left">
-		@components.THead("Champion", "Summoner", "Ranke", "Win/Loss")
-		<tbody>
-			for _, n := range m.Participants {
-				<tr>
-					@components.ChampionGrid(n.ChampionIcon, n.SummonersIcons, n.RunePrimaryIcon, n.RuneSecondaryIcon)
-					@components.E(n.Name)
-					@components.E(n.Rank)
-					@components.E(n.WinLoss, n.WinLoss)
-				</tr>
-			}
-		</tbody>
-	</table>
-	<div>
-		@components.BannedChampions(m.BannedChampionIcon)
-	</div>
-}
-
 templ ProfileLiveGameSkeleton() {
 	<div class="bg-neutral-50 size-full animate-pulse"></div>
 }
 
 templ ProfileLiveGame(m database.ProfileLiveGame) {
-	<div>
-		@ProfileLiveGameTeam(m.BlueTeam)
-	</div>
-	<div>
-		@ProfileLiveGameTeam(m.RedTeam)
-	</div>
+	for _, n := range m.Participants {
+		<tr>
+			@components.ChampionGrid(n.Champion, n.Summoners, n.Runes)
+			@components.E(components.FmtRiotName(n.RiotID, n.RiotTagLine),
+				n.RankDivision,
+				components.FmtWinLoss(n.RankWins, n.RankLosses))
+			@components.BannedChampion(n.BannedChampion)
+		</tr>
+	}
 }
 
 templ ProfileLiveGamePartial(puuid riot.PUUID) {
-	<div
-		hx-get={ genLiveGameQuery(puuid) }
-		hx-trigger="load"
-	>
-		@ProfileLiveGameSkeleton()
-	</div>
+	<table class="text-left w-full">
+		@components.THead("Champion")
+		<tbody
+			hx-get={ genLiveGameQuery(puuid) }
+			hx-trigger="revealed once"
+			hx-swap-oob="beforeend:#table tbody"
+		>
+			@ProfileLiveGameSkeleton()
+		</tbody>
+	</table>
 }
 
 templ ProfileLiveGameNotFoundError() {
@@ -125,23 +117,27 @@ templ ProfileChampionStatListSkeleton() {
 }
 
 templ ProfileChampionStatList(m database.ProfileChampionStatList) {
-	for _, n := range m.Stats {
+	for _, n := range m.List {
 		<tr>
-			@components.Champion(n.ChampionIcon)
+			@components.Champion(n.Champion)
 			@components.E(n.GamesPlayed)
 			@components.E(n.WinLoss, n.WinRate)
 			@components.E(n.LpDelta)
-			@components.E(n.KillDeathAssist, n.KillParticipation)
-			@components.E(n.CreepScore, n.CreepScorePer10)
-			@components.E(n.DamageDone, n.DamagePercentage)
-			@components.E(n.GoldEarned, n.GoldPercentage)
-			@components.E(n.VisionScore)
+			@components.E(components.FmtKDA(n.KdaKills, n.KdaDeaths, n.KdaAssists),
+				components.Fmt(n.KdaParticipation))
+			@components.E(components.FmtInt(n.CsRaw),
+				components.Fmt(n.CsPer10))
+			@components.E(components.FmtInt(n.DmgRaw),
+				components.Fmt(n.DmgPercentageTeam))
+			@components.E(components.FmtInt(n.GoldRaw),
+				components.Fmt(n.GoldPercentageTeam))
+			@components.E(components.FmtInt(n.VisRaw))
 		</tr>
 	}
 }
 
 templ ProfileChampionStatListPartial(puuid riot.PUUID) {
-	<table>
+	<table class="text-left w-full">
 		@components.THead("Champion", "Games", "WinLoss", "LP", "KDA", "CS", "Damage", "Gold", "Vision")
 		<tbody
 			hx-get={ genChampionStatsQuery(puuid) }

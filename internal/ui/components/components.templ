@@ -1,5 +1,8 @@
 package components
 
+import "github.com/rank1zen/yujin/internal"
+import "fmt"
+
 templ HoverArrowRight() {
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
@@ -85,31 +88,64 @@ templ BannedChampions(icons [5]*string) {
 	</div>
 }
 
-templ Champion(championIcon string) {
+templ BannedChampion(id *internal.Champion) {
+}
+
+func getChampionIconUrl(id internal.Champion) string {
+	return ""
+}
+
+func getSummonersIconUrl(id internal.Summoners) string {
+	return ""
+}
+
+templ Champion(champion internal.Champion) {
 	<div class="overflow-hidden rounded-sm">
-		<img class="scale-[1.135] size-full object-cover" src={ championIcon }/>
+		<img
+			class="scale-[1.135] size-full object-cover"
+			src={ getChampionIconUrl(champion) }
+		/>
 	</div>
 }
 
-templ ChampionGrid(championIcon string, summsIcons [2]string, runePrimaryIcon, runeSecondaryIcon string) {
+templ ChampionGrid(champion internal.Champion, summs internal.Summoners, runes internal.Runes) {
 	<div class="grid grid-cols-5 grid-rows-2 gap-0.5 w-[4.5rem] h-auto grid-flow-col">
 		<div class="col-span-2 row-span-2 overflow-hidden rounded-sm">
-			<img class="scale-[1.135] size-full object-cover" src={ championIcon }/>
+			<img
+				class="scale-[1.135] size-full object-cover"
+				src={ getChampionIconUrl(champion) }
+			/>
 		</div>
-		<img class="rounded-sm" src={ summsIcons[0] }/>
-		<img class="rounded-sm" src={ summsIcons[1] }/>
+		<img
+			class="rounded-sm"
+			src={ getSummonersIconUrl(summs) }
+		/>
+		<img
+			class="rounded-sm"
+			src={ summsIcons[1] }
+		/>
 		<div class="grid col-span-2 row-span-2 grid-cols-subgrid grid-rows-subgrid bg-white">
 			<div class="col-start-1 row-start-1 col-span-2 row-span-2">
-				<img src={ runePrimaryIcon } class="size-full"/>
+				<img
+					class="size-full"
+					src={ runePrimaryIcon }
+				/>
 			</div>
 			<div class="col-start-2 row-start-2 z-10 p-1 bg-white rounded-full overflow-hidden shadow">
-				<img src={ runeSecondaryIcon } class="size-full"/>
+				<img
+					class="size-full"
+					src={ runeSecondaryIcon }
+				/>
 			</div>
 		</div>
 	</div>
 }
 
-templ ItemsGrid(icons [7]*string) {
+func getItemIconUrl(ids internal.Items) *string {
+
+}
+
+templ ItemsGrid(icons internal.Items) {
 	<div class="grid grid-cols-3 grid-rows-2 gap-0.5">
 		for i := range 6 {
 			if icons[i] == nil {
@@ -121,4 +157,24 @@ templ ItemsGrid(icons [7]*string) {
 			}
 		}
 	</div>
+}
+
+func FmtKDA(kills, deaths, assists int) string {
+	return fmt.Sprintf("%d / %d / %d", kills, deaths, assists)
+}
+
+func Fmt(x float32) string {
+	return fmt.Sprintf("%.2f%", x)
+}
+
+func FmtInt(x int) string {
+	return fmt.Sprintf("%.2f%", x)
+}
+
+func FmtRiotName(name, tag string) string {
+	return fmt.Sprintf("%s#%s", name, tag)
+}
+
+func FmtWinLoss(wins, losses int) string {
+	return fmt.Sprintf("%d-%d", wins, losses)
 }

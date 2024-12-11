@@ -4,6 +4,8 @@ import "github.com/rank1zen/yujin/internal/database"
 import "fmt"
 import "github.com/rank1zen/yujin/internal/ui/partials"
 import "github.com/rank1zen/yujin/internal/ui/components"
+import "github.com/rank1zen/yujin/internal/ui/format"
+import "github.com/rank1zen/yujin/internal/riot"
 
 templ head(title string) {
 	<head>
@@ -46,24 +48,28 @@ templ InternalServerError() {
 	}
 }
 
+func genProfileUpdatePost(puuid riot.PUUID) string {
+	return fmt.Sprintf("/profile/%s/update", puuid)
+}
+
 templ Profile(m database.ProfileHeader) {
-	@page(fmt.Sprintf("%s - YUJIN", m.Name)) {
+	@page(fmt.Sprintf("%s - YUJIN")) {
 		<div class="flex flex-col">
-			@components.Title(m.Name, m.Rank, m.WinLoss)
+			@components.H1(format.RiotID(m.RiotID, m.RiotTagLine),
+				format.Rank(),
+				format.WinsLosses(m.RankWins, m.RankLosses))
 			<div
 				class="p-2 bg-black text-white"
-				hx-post={ "/profile/" + m.Puuid + "/update" }
+				hx-post={ genProfileUpdatePost(m.Puuid) }
 				hx-trigger="click"
 				type="button"
 			>Update</div>
-			@components.Section("Live Game")
+			@components.H2("Live Game")
 			@partials.ProfileLiveGamePartial(m.Puuid)
-			@components.Section("Recent Games")
+			@components.H2("Recent Games")
 			@partials.ProfileMatchListPartial(m.Puuid)
-			@components.Section("Champion Stats")
+			@components.H2("Champion Stats")
 			@partials.ProfileChampionStatListPartial(m.Puuid)
-			@components.Section("Rank Hisotry")
-			@partials.ProfileRankHistoryPartial(m.Puuid)
 		</div>
 	}
 }

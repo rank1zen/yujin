@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/rank1zen/yujin/internal"
 	"github.com/rank1zen/yujin/internal/database"
 	"github.com/rank1zen/yujin/internal/http/request"
 	"github.com/rank1zen/yujin/internal/http/response/html"
@@ -22,20 +23,131 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type pathHandler struct {
-	path string
-	fn   http.HandlerFunc
-}
-
 type contextKey string
 
 const requestID contextKey = "request_id"
 
-func Routes(db *database.DB) *chi.Mux {
-	router := chi.NewRouter()
+func subPartials(db *database.DB) *chi.Mux {
+	mux := chi.NewMux()
+
+	middlewareChain := []func(http.Handler) http.Handler{
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r.Header.Get("HX-Request")
+				w.Header().Get("HX-Request")
+			})
+		},
+	}
+
+	mux.Use(middlewareChain...)
+
+	mux.Get("/profile/{puuid}/matchlist", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		puuid := chi.URLParam(r, "puuid")
+		page := request.QueryIntParam(r, "page", 0)
+
+		m, err := db.ProfileGetMatchList(ctx, riot.PUUID(puuid), page, true)
+		switch err {
+		case nil:
+			html.OK(w, r, partials.ProfileMatchList(m))
+		default:
+			html.ServerError(w, r, partials.ProfileMatchListError(), err)
+		}
+	})
+
+	mux.Get("/profile/{puuid}/champstats", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		puuid := chi.URLParam(r, "puuid")
+
+		m, err := db.ProfileGetChampionStatList(ctx, riot.PUUID(puuid), internal.Season2020)
+
+		switch {
+		case err == nil:
+			html.OK(w, r, partials.ProfileChampionStatList(m))
+		case errors.As(err, 1):
+			html.OK(w, r, partials.ProfileLiveGameNotFoundError())
+		default:
+			html.ServerError(w, r, partials.ProfileLiveGameError(), err)
+		}
+	})
+
+	mux.Get("/profile/{puuid}/live", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		puuid := chi.URLParam(r, "puuid")
+		m, err := db.ProfileGetLiveGame(ctx, puuid)
+
+		switch {
+		case err == nil:
+			html.OK(w, r, partials.ProfileLiveGame(m))
+		case errors.As(err, 1):
+			html.OK(w, r, partials.ProfileLiveGameNotFoundError())
+		default:
+			html.ServerError(w, r, partials.ProfileLiveGameError(), err)
+		}
+	})
+
+	return mux
+}
+
+func subPages(db *database.DB) *chi.Mux {
+	mux := chi.NewRouter()
 
 	middlewareChain := []func(http.Handler) http.Handler{
 		middleware.NoCache,
+	}
+
+	mux.Use(middlewareChain...)
+
+	mux.Get("/profile/{puuid}", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		puuid := chi.URLParam(r, "puuid")
+
+		exists, err := db.ProfileExists(ctx, puuid)
+		if err != nil {
+			html.ServerError(w, r, pages.InternalServerError(), err)
+			return
+		}
+
+		if !exists {
+			html.BadRequest(w, r, pages.ProfileDoesNotExist(), err)
+			return
+		}
+
+		profile, err := db.ProfileGetHeader(ctx, puuid)
+		if err != nil {
+			html.ServerError(w, r, pages.InternalServerError(), err)
+			return
+		}
+
+		html.OK(w, r, pages.Profile(profile))
+	})
+
+	mux.Post("/profile/{puuid}/update", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		puuid := chi.URLParam(r, "puuid")
+
+		err := db.ProfileUpdate(ctx, puuid)
+		if err != nil {
+			html.ServerError(w, r, nil, fmt.Errorf("updating summary: %w", err))
+			return
+		}
+
+		w.Header().Set("HX-Refresh", "true")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	return mux
+}
+
+func Routes(db *database.DB) *chi.Mux {
+	base := chi.NewRouter()
+
+	middlewareChain := []func(http.Handler) http.Handler{
 		middleware.Recoverer,
 		func(next http.Handler) http.Handler {
 			fn := func(w http.ResponseWriter, r *http.Request) {
@@ -76,9 +188,9 @@ func Routes(db *database.DB) *chi.Mux {
 		},
 	}
 
-	router.Use(middlewareChain...)
+	base.Use(middlewareChain...)
 
-	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
+	base.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		logger := logging.FromContext(ctx)
@@ -87,98 +199,9 @@ func Routes(db *database.DB) *chi.Mux {
 		templ.Handler(pages.NotFound(), templ.WithStatus(http.StatusNotFound)).ServeHTTP(w, r)
 	})
 
-	for _, handler := range []pathHandler{
-		{
-			"/profile/{puuid}",
-			func(w http.ResponseWriter, r *http.Request) {
-				ctx := r.Context()
-				puuid := chi.URLParam(r, "puuid")
-				exists, err := db.ProfileExists(ctx, puuid)
-				if err != nil {
-					html.ServerError(w, r, pages.ProfileNotFound(puuid), err)
-					// internal server err html
-					return
-				}
+	base.Mount("/", subPages(db))
 
-				if exists {
-					profile, err := db.ProfileGetHeader(ctx, puuid)
-					if err != nil {
-						html.ServerError(w, r, pages.ProfileNotFound(puuid), err)
-						return
-					}
+	base.Mount("/partials", subPartials(db))
 
-					html.OK(w, r, pages.Profile(profile, puuid))
-				} else {
-					html.BadRequest(w, r, pages.ProfileNotFound(puuid), err)
-				}
-			},
-		},
-		{
-			"/profile/{name}/matchlist",
-			func(w http.ResponseWriter, r *http.Request) {
-				ctx := r.Context()
-				name := chi.URLParam(r, "name")
-				page := request.QueryIntParam(r, "page", 0)
-				m, err := db.ProfileGetMatchList(ctx, name, page, true)
-				switch err {
-				case nil:
-					html.OK(w, r, partials.ProfileMatchList(m))
-				default:
-					html.ServerError(w, r, partials.ProfileMatchListError(), err)
-				}
-			},
-		},
-		{
-			"/profile/{name}/live",
-			func(w http.ResponseWriter, r *http.Request) {
-				ctx := r.Context()
-				name := chi.URLParam(r, "name")
-				m, err := db.ProfileGetLiveGame(ctx, name)
-				switch {
-				case err == nil:
-					html.OK(w, r, partials.ProfileLiveGame(m))
-				case errors.As(err, 1):
-					html.OK(w, r, partials.ProfileLiveGameNotFoundError())
-				default:
-					html.ServerError(w, r, partials.ProfileLiveGameError(), err)
-				}
-			},
-		},
-	} {
-		router.Get(handler.path, handler.fn)
-	}
-
-	for _, handler := range []pathHandler{
-		{
-			"/profile/{name}/update",
-			func(w http.ResponseWriter, r *http.Request) {
-				ctx := r.Context()
-				name := chi.URLParam(r, "name")
-				err := db.ProfileUpdate(ctx, name)
-				if err != nil {
-					html.ServerError(w, r, nil, fmt.Errorf("updating summary: %w", err))
-					return
-				}
-
-				w.Header().Set("HX-Refresh", "true")
-				w.WriteHeader(http.StatusOK)
-			},
-		},
-	} {
-		router.Post(handler.path, handler.fn)
-	}
-
-	return router
-}
-
-func GenMatchListQuery(puuid riot.PUUID, page int) string {
-	return fmt.Sprintf("/profile/%s/matchlist?page=%d", puuid, page)
-}
-
-func GenLiveGameQuery(puuid riot.PUUID) string {
-	return fmt.Sprintf("/profile/%s/livegame", puuid)
-}
-
-func GenChampionStatsQuery(puuid riot.PUUID) string {
-	return fmt.Sprintf("/profile/%s/matchlist", puuid)
+	return base
 }
