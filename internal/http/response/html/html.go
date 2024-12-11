@@ -30,3 +30,7 @@ func BadRequest(w http.ResponseWriter, r *http.Request, c templ.Component, err e
 	w.WriteHeader(http.StatusBadRequest)
 	c.Render(ctx, w)
 }
+
+func NotFound() {
+
+}
