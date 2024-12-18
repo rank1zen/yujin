@@ -1,0 +1,59 @@
+package comp
+
+templ H1(h string, s ...string) {
+	<div class="flex flex-col">
+		<h1 class="font-bold mt-8">{ h }</h1>
+		<div class="flex gap-1 text-sm">
+			for _, sub := range s {
+				<div class="rounded-sm bg-gray-200 px-0.5">{ sub }</div>
+			}
+		</div>
+	</div>
+}
+
+templ H2(h string, s ...string) {
+	<div class="flex flex-col">
+		<h2 class="font-bold mt-8">{ h }</h2>
+		<div class="flex gap-1 text-sm">
+			for _, sub := range s {
+				<div class="rounded-sm bg-gray-200 px-0.5">{ sub }</div>
+			}
+		</div>
+	</div>
+}
+
+templ H3(h string, s ...string) {
+	<div class="flex flex-col">
+		<h3 class="font-bold mt-8">{ h }</h3>
+		<div class="flex gap-1 text-sm">
+			for _, sub := range s {
+				<div class="rounded-sm bg-gray-200 px-0.5">{ sub }</div>
+			}
+		</div>
+	</div>
+}
+
+templ Entry(h string, s ...string) {
+	<div class="flex flex-col">
+		<div class="">{ h }</div>
+		<div class="flex gap-1 text-sm">
+			for _, sub := range s {
+				<div class="rounded-sm bg-gray-200 px-0.5">{ sub }</div>
+			}
+		</div>
+	</div>
+}
+
+templ Head(s ...string) {
+	<thead>
+		<tr class="sticky">
+			for _, t := range s {
+				<th>{ t }</th>
+			}
+		</tr>
+	</thead>
+}
+
+templ Last() {
+	<div>This is the end of the table</div>
+}

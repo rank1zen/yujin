@@ -1,0 +1,48 @@
+package partial
+
+import "github.com/rank1zen/yujin/internal/database"
+import "github.com/rank1zen/yujin/internal/ui/comp"
+
+func genChampionStatsQuery(puuid riot.PUUID) string {
+	return fmt.Sprintf("/profile/%s/matchlist", puuid)
+}
+
+templ ProfileChampionStatListSkeleton() {
+	<div>
+		for range 15 {
+			<div></div>
+		}
+	</div>
+}
+
+templ ProfileChampionStatList(m database.ProfileChampionStatList) {
+	for _, n := range m.List {
+		<tr>
+			@comp.Champion(n.Champion)
+			@comp.Entry(n.GamesPlayed)
+			@comp.Entry(n.WinLoss, n.WinRate)
+			@comp.Entry(n.LpDelta)
+			@comp.Entry(components.FmtKDA(n.KdaKills, n.KdaDeaths, n.KdaAssists), components.Fmt(n.KdaParticipation))
+			@comp.Entry(components.FmtInt(n.CsRaw), components.Fmt(n.CsPer10))
+			@comp.Entry(components.FmtInt(n.DmgRaw), components.Fmt(n.DmgPercentageTeam))
+			@comp.Entry(components.FmtInt(n.GoldRaw), components.Fmt(n.GoldPercentageTeam))
+			@comp.Entry(components.FmtInt(n.VisRaw))
+		</tr>
+	}
+}
+
+templ ProfileChampionStatListPartial(puuid riot.PUUID) {
+	<table class="text-left w-full">
+		@components.THead("Champion", "Games", "WinLoss", "LP", "KDA", "CS", "Damage", "Gold", "Vision")
+		<tbody
+			hx-get={ genChampionStatsQuery(puuid) }
+			hx-trigger="revealed once"
+		>
+			@ProfileChampionStatListSkeleton()
+		</tbody>
+	</table>
+}
+
+templ ProfileChampionStatListError() {
+	<div></div>
+}
