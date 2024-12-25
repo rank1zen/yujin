@@ -55,22 +55,60 @@ type MatchMetadata struct {
 }
 
 type MatchInfo struct {
-	EndOfGameResult    string              `json:"endOfGameResult"`
-	GameCreation       int64               `json:"gameCreation"`
-	GameDuration       int                 `json:"gameDuration"`
-	GameEndTimestamp   int64               `json:"gameEndTimestamp"`
-	GameId             int64               `json:"gameId"`
-	GameMode           string              `json:"gameMode"`
-	GameName           string              `json:"gameName"`
-	GameStartTimestamp int64               `json:"gameStartTimestamp"`
-	GameType           string              `json:"gameType"`
-	GameVersion        string              `json:"gameVersion"`
-	MapId              int                 `json:"mapId"`
-	Participants       []*MatchParticipant `json:"participants"`
-	PlatformId         string              `json:"platformId"`
-	QueueId            int                 `json:"queueId"`
-	Teams              []*MatchTeam        `json:"teams"`
-	TournamentCode     string              `json:"tournamentCode"`
+	// EndOfGameResult indicates if the game ended in termination.
+	EndOfGameResult string `json:"endOfGameResult"`
+
+	// GameCreation is a Unix timestamp, in milliseconds, incidating the
+	// time of game creation on the server, i.e., the loading screen.
+	GameCreation int64 `json:"gameCreation"`
+
+	// GameDuration is the duration of a game.
+	// Prior to patch 11.20, this field returns the game length in
+	// milliseconds calculated from gameEndTimestamp - gameStartTimestamp.
+	// Post patch 11.20, this field returns the max timePlayed of any
+	// participant in the game in seconds, which makes the behavior of this
+	// field consistent with that of match-v4. The best way to handling the
+	// change in this field is to treat the value as milliseconds if the
+	// gameEndTimestamp field isn't in the response and to treat the value
+	// as seconds if gameEndTimestamp is in the response.
+	GameDuration int64 `json:"gameDuration"`
+
+	// GameEndTimestamp is a Unix timestamp for when match ends on the game
+	// server. This timestamp can occasionally be significantly longer than
+	// when the match "ends". The most reliable way of determining the
+	// timestamp for the end of the match would be to add the max time
+	// played of any participant to the gameStartTimestamp. This field was
+	// added to match-v5 in patch 11.20 on Oct 5th, 2021.
+	GameEndTimestamp int64 `json:"gameEndTimestamp"`
+
+	GameId int64 `json:"gameId"`
+
+	// Refer to the Game Constants Documentation
+	GameMode string `json:"gameMode"`
+
+	GameName string `json:"gameName"`
+
+	// GameStartTimestamp is a Unix timestamp, in milliseconds, indicating the
+	// time of game start on the server.
+	GameStartTimestamp int64 `json:"gameStartTimestamp"`
+
+	GameType string `json:"gameType"`
+
+	GameVersion string `json:"gameVersion"`
+
+	// Refer to the Game Constants Documentation
+	MapId int `json:"mapId"`
+
+	Participants []*MatchParticipant `json:"participants"`
+
+	PlatformId string `json:"platformId"`
+
+	// Refer to the Game Constants Documentation
+	QueueId int `json:"queueId"`
+
+	Teams []*MatchTeam `json:"teams"`
+
+	TournamentCode string `json:"tournamentCode"`
 }
 
 // NOTE: there are a lot more fields here
