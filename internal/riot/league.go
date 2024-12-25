@@ -10,19 +10,33 @@ import (
 const QueueTypeRankedSolo5x5 = "RANKED_SOLO_5x5"
 
 type LeagueEntry struct {
-	LeagueId     string      `json:"leagueId"`
-	SummonerId   string      `json:"summonerId"`
-	QueueType    string      `json:"queueType"`
-	Tier         string      `json:"tier"`
-	Rank         string      `json:"rank"`
-	LeaguePoints int         `json:"leaguePoints"`
-	Wins         int         `json:"wins"`
-	Losses       int         `json:"losses"`
-	HotStreak    bool        `json:"hotStreak"`
-	Veteran      bool        `json:"veteran"`
-	FreshBlood   bool        `json:"freshBlood"`
-	Inactive     bool        `json:"inactive"`
-	MiniSeries   *MiniSeries `json:"miniSeries"`
+	LeagueId string `json:"leagueId"`
+
+	SummonerId string `json:"summonerId"`
+
+	QueueType string `json:"queueType"`
+
+	// Tier is the summoner's tier, e.g., 'Diamond'
+	Tier string `json:"tier"`
+
+	// Rank is the summoner's division within a tier, e.g., 'IV'
+	Rank string `json:"rank"`
+
+	LeaguePoints int `json:"leaguePoints"`
+
+	Wins int `json:"wins"`
+
+	Losses int `json:"losses"`
+
+	HotStreak bool `json:"hotStreak"`
+
+	Veteran bool `json:"veteran"`
+
+	FreshBlood bool `json:"freshBlood"`
+
+	Inactive bool `json:"inactive"`
+
+	MiniSeries *MiniSeries `json:"miniSeries"`
 }
 
 type LeagueEntryList []*LeagueEntry
