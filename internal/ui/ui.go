@@ -1,63 +1,33 @@
 package ui
 
 import (
-	"net/http"
-
-	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rank1zen/yujin/internal/database"
-	"github.com/rank1zen/yujin/internal/logging"
-	"github.com/rank1zen/yujin/internal/ui/pages"
+	"github.com/rank1zen/yujin/internal"
 )
 
-type contextKey string
-
-const requestID contextKey = "request_id"
-
-func pagesSubgroup(db *database.DB) *chi.Mux {
-	mux := chi.NewRouter()
-
-	middlewareChain := []func(http.Handler) http.Handler{
-		middleware.NoCache,
-	}
-
-	mux.Use(middlewareChain...)
-
-	mux.Get("/profile/{puuid}", profileShow(db))
-	mux.Post("/profile/{puuid}/update", profileRefresh(db))
-
-	return mux
+type ui struct {
+	repo internal.Repository
+	api  internal.RiotClient
 }
 
-func partialsSubroute(db *database.DB) *chi.Mux {
-	mux := chi.NewMux()
+func Routes(repo internal.Repository, api internal.RiotClient) *chi.Mux {
+	base := chi.NewMux()
 
-	mux.Use(checkHTMX)
+	base.Use(addRequestID, logMeta)
+	base.Use(middleware.NoCache)
 
-	mux.Get("/profile/{puuid}/matchlist", profileShowMatchList(db))
-	mux.Get("/profile/{puuid}/champstats", profileShowChampStats(db))
-	mux.Get("/profile/{puuid}/live", profileShowLiveGame(db))
+	base.NotFound(notFound)
 
-	return mux
-}
+	handler := ui{repo: repo, api: api}
 
-func Routes(db *database.DB) *chi.Mux {
-	base := chi.NewRouter()
+	base.Get("/profile/{puuid}", handler.profileShow)
+	base.Post("/profile/{puuid}/update", handler.profileRefresh)
 
-	base.Use(addRequestID, addLoggedFields)
-
-	base.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		logger := logging.FromContext(ctx)
-
-		logger.Warn(r.URL.String())
-		templ.Handler(pages.NotFound(), templ.WithStatus(http.StatusNotFound)).ServeHTTP(w, r)
-	})
-
-	base.Mount("/", pagesSubgroup(db))
-	base.Mount("/partials", partialsSubroute(db))
+	base.Get("/partials/profile/{puuid}/matchlist", handler.profileShowMatchList)
+	base.Get("/partials/profile/{puuid}/champstats", handler.profileShowChampStats)
+	base.Get("/partials/profile/{puuid}/ranklist", handler.profileShowRankList)
+	base.Get("/partials/profile/{puuid}/live", handler.profileShowLiveMatch)
 
 	return base
 }

@@ -3,4 +3,4 @@
 
 # YUJIN.GG
 
-A League of Legends web app focused on usability.
+A League of Legends web app focused on usability; designed exclusively for ranked, soloq data.

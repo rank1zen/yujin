@@ -7,10 +7,15 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/rank1zen/yujin/internal/http/request"
 	"github.com/rank1zen/yujin/internal/logging"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+type contextKey string
+
+const requestID contextKey = "request_id"
 
 func addRequestID(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +31,7 @@ func addRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-func addLoggedFields(next http.Handler) http.Handler {
+func logMeta(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		wrw := middleware.NewWrapResponseWriter(w, 1)
 
@@ -52,4 +57,13 @@ func addLoggedFields(next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(fn)
+}
+
+func checkHTMX(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !request.IsHTMX(r) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+	})
 }

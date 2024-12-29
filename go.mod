@@ -4,6 +4,7 @@ go 1.22
 
 require (
 	github.com/a-h/templ v0.2.778
+	github.com/brianvoe/gofakeit/v7 v7.1.2
 	github.com/go-chi/chi/v5 v5.0.14
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0

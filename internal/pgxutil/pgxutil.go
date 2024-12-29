@@ -24,6 +24,7 @@ type Conn interface {
 
 type Query interface {
 	Query(ctx context.Context, sql string, optionsAndArgs ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, optionsAndArgs ...any) pgx.Row
 }
 
 type Exec interface {

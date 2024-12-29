@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"strconv"
 
-	"github.com/rank1zen/yujin/internal/database"
+	"github.com/rank1zen/yujin/internal/db"
 	"github.com/rank1zen/yujin/internal/logging"
 	"github.com/rank1zen/yujin/internal/ui"
 	"go.uber.org/zap"
@@ -27,7 +27,7 @@ func main() {
 	logger := logging.Get()
 	defer logger.Sync()
 
-	db, err := database.NewDB(ctx, os.Getenv("YUJIN_POSTGRES_POOL_URL"))
+	db, err := db.NewDB(ctx, os.Getenv("YUJIN_POSTGRES_POOL_URL"))
 	if err != nil {
 		logger.Sugar().Fatalf("connecting to db: %v", err)
 	}
