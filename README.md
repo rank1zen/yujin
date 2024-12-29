@@ -1,12 +1,6 @@
-*Currently work in progress.*
-Check the `dev` branch.
+> [!WARNING]
+> This plugin is under active development.
 
 # YUJIN.GG
 
-An innovative League of Legends web app focused on **simplicity** and **usability**.
-
-> Keep whats on screen to a minimum, everything else needs to go.
-
-## Contributing
-
-Run a docker and make dev and go to local host something something.
+A League of Legends web app focused on usability.
